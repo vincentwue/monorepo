@@ -1,0 +1,19 @@
+{
+    "name": "@monorepo/tree",
+    "version": "0.0.1",
+    "type": "module",
+    "main": "src/index.ts",
+    "private": true,
+    "dependencies": {
+        "@monorepo/mongo-explorer": "workspace:*",
+        "@reduxjs/toolkit": "^2.2.0",
+        "react-redux": "^9.1.0"
+    },
+    "scripts": {
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "@types/node": "^24.9.2",
+        "tsx": "^4.20.6"
+    }
+}
