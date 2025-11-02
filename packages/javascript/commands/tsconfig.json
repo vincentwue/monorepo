@@ -1,0 +1,38 @@
+{
+    "compilerOptions": {
+        /* Basic */
+        "target": "ES2020",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "allowImportingTsExtensions": true,
+        "jsx": "react-jsx",
+        /* Type-checking */
+        "strict": true,
+        "noImplicitAny": false,
+        "skipLibCheck": true,
+        /* Paths + Imports */
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "src/*"
+            ]
+        },
+        /* Output control */
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true
+    },
+    /* Where TypeScript should look for files */
+    "include": [
+        "src",
+        "selectors",
+        "examples",
+        "src/types"
+    ],
+    /* Ignore generated files */
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}
