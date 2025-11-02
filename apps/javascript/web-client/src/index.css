@@ -1,0 +1,140 @@
+/* Tailwind layers first */
+@tailwind base;
+
+/* 🔵 Global scrollbar + tokens BEGIN */
+:root {
+  --sb-track: rgba(71, 85, 105, 0.18);
+  --sb-thumb: rgba(96, 165, 250, 0.55);
+  --sb-thumb-hover: rgba(96, 165, 250, 0.8);
+  --sb-corner: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sb-track: rgba(148, 163, 184, 0.18);
+    --sb-thumb: rgba(96, 165, 250, 0.55);
+    --sb-thumb-hover: rgba(147, 197, 253, 0.85);
+  }
+}
+
+/* document must be styled if it scrolls */
+html,
+body {
+  height: 100%;
+  background-color: #0f172a;
+} /* slate-900 */
+html {
+  /* scrollbar-gutter: stable; */
+} /* was: stable both-edges */
+
+html {
+
+}
+
+/* Firefox (document) */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+/* WebKit (document) */
+html::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+html::-webkit-scrollbar-track {
+  background: var(--sb-track);
+  border-radius: 999px;
+}
+html::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--sb-thumb), transparent 15%),
+    var(--sb-thumb)
+  );
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+html::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--sb-thumb-hover), transparent 10%),
+    var(--sb-thumb-hover)
+  );
+}
+html::-webkit-scrollbar-corner {
+  background: var(--sb-corner);
+}
+
+/* 🔵 Global scrollbar + tokens (thicker + darker blue-grey) */
+:root {
+  /* tweak these to taste */
+  --sb-track: rgba(51, 65, 85, 0.35); /* slate-700 @ 35% */
+  --sb-thumb: rgba(71, 85, 105, 0.9); /* slate-600 @ 90% (dark grey-blue) */
+  --sb-thumb-hover: rgba(96, 165, 250, 0.95); /* blue-400 @ 95% for hover pop */
+  --sb-corner: transparent;
+
+  /* thickness */
+  --sb-size: 14px; /* ← thicker (was 10px) */
+  --sb-border: 3px; /* inner padding to keep pill look */
+  --sb-radius: 999px;
+}
+
+/* document must be styled if it scrolls */
+html,
+body {
+  height: 100%;
+}
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Firefox (cannot set width > 'auto'/'thin'; color still works) */
+html,
+.nice-scrollbar {
+  scrollbar-width: auto; /* Firefox ignores pixel width; 'auto' > 'thin' */
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+/* WebKit (Chrome/Edge/Safari) — supports thickness */
+html::-webkit-scrollbar,
+.nice-scrollbar::-webkit-scrollbar {
+  width: var(--sb-size);
+  height: var(--sb-size);
+}
+
+html::-webkit-scrollbar-track,
+.nice-scrollbar::-webkit-scrollbar-track {
+  background: var(--sb-track);
+  border-radius: var(--sb-radius);
+}
+
+html::-webkit-scrollbar-thumb,
+.nice-scrollbar::-webkit-scrollbar-thumb {
+  /* strong dark grey-blue thumb */
+  background: linear-gradient(180deg, var(--sb-thumb), var(--sb-thumb));
+  border-radius: var(--sb-radius);
+  border: var(--sb-border) solid transparent; /* inset look */
+  background-clip: content-box;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+.nice-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    var(--sb-thumb-hover),
+    var(--sb-thumb-hover)
+  );
+}
+
+html::-webkit-scrollbar-corner,
+.nice-scrollbar::-webkit-scrollbar-corner {
+  background: var(--sb-corner);
+}
+
+/* Tailwind component layer */
+@tailwind components;
+
+/* Tailwind utilities last */
+@tailwind utilities;

@@ -1,0 +1,62 @@
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: identity_postgres
+    environment:
+      POSTGRES_USER: ory
+      POSTGRES_PASSWORD: ory
+      POSTGRES_DB: ory
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # One-shot migration job
+  kratos-migrate:
+    image: oryd/kratos:v1.0.0
+    container_name: kratos_migrate
+    command: migrate sql -e --yes
+    depends_on:
+      - postgres
+    environment:
+      - DSN=postgres://ory:ory@postgres:5432/ory?sslmode=disable
+    restart: "no"
+
+  kratos:
+    image: oryd/kratos:v1.0.0
+    command: serve -c /etc/config/kratos.yml --dev
+    container_name: kratos
+    depends_on:
+      - postgres
+      - kratos-migrate
+    environment:
+      - DSN=postgres://ory:ory@postgres:5432/ory?sslmode=disable
+    ports:
+      - "4433:4433"
+      - "4434:4434"
+    volumes:
+      - ./apps/ory/kratos/kratos.yml:/etc/config/kratos.yml
+      - ./apps/ory/kratos/identity.default.schema.json:/etc/config/identity.default.schema.json
+
+  keto:
+    image: oryd/keto:v0.11.0
+    command: serve -c /etc/config/keto.yml
+    container_name: keto
+    ports:
+      - "4466:4466"
+      - "4467:4467"
+    volumes:
+      - ./apps/ory/keto/keto.yml:/etc/config/keto.yml
+
+  mongo:
+    image: mongo:6
+    container_name: mongo_default
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_default_data:/data/db
+
+volumes:
+  postgres_data:
+  mongo_default_data:

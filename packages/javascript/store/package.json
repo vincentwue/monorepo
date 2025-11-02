@@ -1,0 +1,12 @@
+{
+    "name": "@monorepo/store",
+    "version": "0.0.1",
+    "type": "module",
+    "main": "src/index.ts",
+    "private": true,
+    "dependencies": {
+        "@reduxjs/toolkit": "^2.2.0",
+        "react-redux": "^9.1.0",
+        "@monorepo/mongo-explorer": "workspace:*"
+    }
+}

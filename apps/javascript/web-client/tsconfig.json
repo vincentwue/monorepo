@@ -1,0 +1,40 @@
+{
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": {
+        /* Output */
+        "outDir": "dist",
+        "rootDir": "src",
+        /* Module system */
+        "module": "ESNext",
+        "target": "ESNext",
+        "moduleResolution": "Bundler",
+        "types": [
+            "vite/client"
+        ],
+        /* JSX / React */
+        "jsx": "react-jsx",
+        /* Path + import ergonomics */
+        "baseUrl": ".",
+        "allowJs": false,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "paths": {
+            "@monorepo/store": [
+                "../../packages/store/src"
+            ],
+            "@monorepo/mongo-explorer": [
+                "../../packages/mongo-explorer/src"
+            ]
+        }
+    },
+    "include": [
+        "src"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}

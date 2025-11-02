@@ -1,0 +1,27 @@
+{
+  "name": "monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/javascript/*"
+  ],
+  "paths": {
+    "@monorepo/*": [
+      "packages/javascript/*/src"
+    ]
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.26",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^5.1.0",
+    "eslint": "^9",
+    "prettier": "^3",
+    "turbo": "^2",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

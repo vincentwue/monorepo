@@ -1,0 +1,14 @@
+dsn: memory
+
+log:
+  level: debug
+
+namespaces:
+  - id: 0
+    name: ideas
+
+serve:
+  read:
+    port: 4466
+  write:
+    port: 4467

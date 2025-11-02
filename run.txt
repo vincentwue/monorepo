@@ -1,0 +1,9 @@
+
+cd apps/javascript/web-client
+
+cd apps/python/mongo_connector
+uv run uvicorn main:app --host 0.0.0.0 --port 8010
+
+uv run -p apps/ideas_server python src/main.py
+
+docker compose -f docker-compose.dev.yml up --build

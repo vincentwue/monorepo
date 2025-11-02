@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "paths": {
+      "@monorepo/*": [
+        "packages/javascript/*/src"
+      ]
+    },
+    "baseUrl": ".",
+    "strict": true,
+    "esModuleInterop": true
+  }
+}

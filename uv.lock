@@ -1,0 +1,19 @@
+version = 1
+revision = 2
+requires-python = ">=3.13"
+
+[manifest]
+members = [
+    "ideas",
+    "mongo-connector",
+]
+
+[[package]]
+name = "ideas"
+version = "0.1.0"
+source = { virtual = "." }
+
+[[package]]
+name = "mongo-connector"
+version = "0.1.0"
+source = { virtual = "apps/python/mongo_connector" }

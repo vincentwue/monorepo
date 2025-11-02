@@ -1,0 +1,15 @@
+{
+  "name": "@monorepo/mongo-explorer",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.2.3"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-redux": "^9.2.0"
+  }
+}

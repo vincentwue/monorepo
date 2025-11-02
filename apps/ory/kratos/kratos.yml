@@ -1,0 +1,64 @@
+dsn: postgres://ory:ory@postgres:5432/ory?sslmode=disable
+
+log:
+  level: debug
+  format: text
+
+secrets:
+  cookie:
+    - "CHANGE_ME_TO_A_32_BYTE_SECRET_STRING_123456"
+  cipher:
+    - "THIS_IS_A_32_BYTE_SECRET_STRING!"
+
+hashers:
+  argon2:
+    parallelism: 1
+    memory: 131072KB
+    iterations: 2
+    salt_length: 16
+    key_length: 16
+
+serve:
+  public:
+    base_url: http://localhost:4433/
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://localhost:5173
+      allow_credentials: true
+  admin:
+    base_url: http://localhost:4434/
+
+identity:
+  schemas:
+    - id: default
+      url: file:///etc/config/identity.default.schema.json
+
+selfservice:
+  default_browser_return_url: http://localhost:5173/dashboard
+
+  flows:
+    login:
+      ui_url: http://localhost:5173/login
+    registration:
+      ui_url: http://localhost:5173/register
+      after:
+        password:
+          hooks:
+            - hook: session
+    logout:
+      after:
+        default_browser_return_url: http://localhost:5173/
+
+  methods:
+    password:
+      enabled: true
+
+session:
+  lifespan: 24h
+  cookie:
+    same_site: Lax
+
+courier:
+  smtp:
+    connection_uri: smtps://test:test@mail.local:587/
