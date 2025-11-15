@@ -1,0 +1,298 @@
+:root {
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #0f172a;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    background: #f3f4f6;
+    color: inherit;
+}
+
+.mtu-root {
+    min-height: 100vh;
+    padding: 1.5rem 1rem 2rem;
+    display: flex;
+    justify-content: center;
+    background: linear-gradient(180deg, #edf2fb, #f8fafc 35%, #f3f4f6);
+}
+
+.mtu-container {
+    width: 100%;
+    max-width: 430px;
+    background: #fff;
+    border-radius: 28px;
+    box-shadow: 0 35px 80px rgba(15, 23, 42, 0.15);
+    display: flex;
+    flex-direction: column;
+    min-height: 520px;
+    overflow: hidden;
+}
+
+.mtu-header {
+    padding: 1.5rem 1.75rem 0.5rem;
+}
+
+.mtu-header__subtitle {
+    margin: 0;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #94a3b8;
+}
+
+.mtu-header__title {
+    margin: 0.35rem 0 0;
+    font-size: 1.6rem;
+}
+
+.mtu-breadcrumb {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    padding: 0.5rem 1.5rem 1rem;
+    font-size: 0.9rem;
+    color: #475569;
+    overflow-x: auto;
+}
+
+.mtu-breadcrumb__button {
+    background: none;
+    border: none;
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.mtu-breadcrumb__current {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.mtu-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.mtu-node-list {
+    padding: 0.25rem 0.75rem 1rem;
+}
+
+.mtu-node-list__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+}
+
+.mtu-node-list__count {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #94a3b8;
+}
+
+.mtu-node-list ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.mtu-node-list__item {
+    width: 100%;
+    text-align: left;
+    padding: 0;
+    margin-bottom: 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    touch-action: none;
+    cursor: grab;
+}
+
+.mtu-node-list__item.is-selected {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.mtu-node-list__item.is-dragging {
+    opacity: 0.8;
+    transform: scale(0.99);
+    cursor: grabbing;
+}
+
+.mtu-node-list__body {
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.mtu-node-list__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.mtu-node-list__badge {
+    min-width: 2rem;
+    text-align: center;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.07);
+    padding: 0.25rem 0.4rem;
+    font-size: 0.8rem;
+    color: #475569;
+}
+
+.mtu-icon-btn {
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    background: #fff;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.9rem;
+}
+
+.mtu-icon-btn:disabled {
+    opacity: 0.3;
+}
+
+.mtu-icon-btn--danger {
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+}
+
+.mtu-node-list__title {
+    font-size: 1rem;
+    margin: 0;
+    font-weight: 600;
+}
+
+.mtu-node-list__meta {
+    margin: 0.25rem 0 0;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.mtu-node-list__open {
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    background: rgba(248, 250, 252, 0.85);
+    padding: 0.45rem 0.9rem;
+    font-weight: 600;
+    color: #2563eb;
+}
+
+.mtu-node-list__open:active {
+    transform: scale(0.97);
+}
+
+.mtu-node-empty {
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    color: #94a3b8;
+}
+
+.mtu-actions {
+    padding: 1rem 1.2rem 1.25rem;
+    border-top: 1px solid rgba(226, 232, 240, 0.6);
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.85), #fff);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.mtu-actions__full {
+    width: 100%;
+}
+
+.mtu-actions__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.mtu-btn {
+    padding: 0.9rem 1.1rem;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    font-weight: 600;
+}
+
+.mtu-btn:disabled {
+    opacity: 0.4;
+}
+
+.mtu-btn--primary {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.mtu-btn--ghost {
+    background: transparent;
+    border: 1px dashed #94a3b8;
+    color: #475569;
+}
+
+.mtu-btn--danger {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+}
+
+.mtu-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    z-index: 50;
+}
+
+.mtu-modal__card {
+    width: min(380px, 100%);
+    background: #fff;
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+}
+
+.mtu-modal__subtitle {
+    color: #64748b;
+    margin-top: 0.35rem;
+}
+
+.mtu-input {
+    width: 100%;
+    border-radius: 0.85rem;
+    border: 1px solid #cbd5f5;
+    padding: 0.75rem 1rem;
+    margin-top: 0.75rem;
+    font-size: 1rem;
+}
+
+.mtu-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+@media (min-width: 480px) {
+    .mtu-actions__grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.mtu-actions--empty {
+    padding-bottom: 2rem;
+}

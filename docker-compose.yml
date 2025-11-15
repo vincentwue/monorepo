@@ -32,15 +32,61 @@ services:
       - kratos-migrate
     environment:
       - DSN=postgres://ory:ory@postgres:5432/ory?sslmode=disable
+      - SELFSERVICE_FLOWS_ERROR_UI_URL=http://localhost:5173/error
     ports:
       - "4433:4433"
       - "4434:4434"
     volumes:
       - ./apps/ory/kratos/kratos.yml:/etc/config/kratos.yml
       - ./apps/ory/kratos/identity.default.schema.json:/etc/config/identity.default.schema.json
+  auth-ui:
+    build:
+      context: .
+      dockerfile: ./apps/auth-ui/Dockerfile
+    container_name: auth_ui
+    depends_on:
+      - kratos
+    environment:
+      - VITE_ORY_BROWSER_URL=http://kratos:4433
+      - VITE_AUTH_SUCCESS_REDIRECT=http://localhost:5174/
+      - VITE_AUTH_LOGIN_REDIRECT=http://localhost:5173/login
+      - VITE_AUTH_REGISTRATION_REDIRECT=http://localhost:5173/register
+      - VITE_AUTH_RECOVERY_REDIRECT=http://localhost:5173/recovery
+    ports:
+      - "5173:80"
+
+  web-client:
+    build:
+      context: .
+      dockerfile: ./apps/javascript/web-client/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    container_name: web_client
+    depends_on:
+      - kratos
+    ports:
+      - "5174:80"
+
+  core-server:
+    build:
+      context: .
+      dockerfile: ./apps/python/core_server/Dockerfile
+    container_name: core_server
+    depends_on:
+      - mongo
+      - keto
+      - kratos
+    environment:
+      - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017}
+      - MONGO_DB_NAME=${MONGO_DB_NAME:-ideas}
+      - KRATOS_PUBLIC_URL=${KRATOS_PUBLIC_URL:-http://kratos:4433}
+      - KETO_READ_URL=${KETO_READ_URL:-http://keto:4466}
+      - KETO_WRITE_URL=${KETO_WRITE_URL:-http://keto:4467}
+    ports:
+      - "8000:8000"
 
   keto:
-    image: oryd/keto:v0.11.0
+    image: oryd/keto:v0.12.0
     command: serve -c /etc/config/keto.yml
     container_name: keto
     ports:

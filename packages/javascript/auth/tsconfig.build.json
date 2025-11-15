@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "stripInternal": true
+  },
+  "include": [
+    "src/index.ts",
+    "src/components/AuthFlow.tsx",
+    "src/components/Login.tsx",
+    "src/components/Registration.tsx",
+    "src/components/Recovery.tsx",
+    "src/components/RequireAuth.tsx",
+    "src/components/useSession.tsx",
+    "src/components/Logout.tsx",
+    "src/utils/**/*.ts",
+    "src/types/**/*.ts",
+    "src/env.d.ts"
+  ],
+  "exclude": [
+    "src/dev",
+    "examples"
+  ]
+}

@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "db_core"
+version = "0.1.0"
+description = "Shared MongoDB helpers and types."
+requires-python = ">=3.11"
+dependencies = [
+    "motor",
+    "pydantic>=2.0",
+    "typing-extensions",
+]

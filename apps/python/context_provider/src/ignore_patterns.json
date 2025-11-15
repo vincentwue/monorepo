@@ -1,0 +1,73 @@
+{
+  "ignore_patterns": [
+    "node_modules",
+    ".venv",
+    "__pycache__",
+    ".python-version",
+    "dist",
+    "build",
+    ".vite",
+    ".turbo",
+    ".parcel-cache",
+    ".next",
+    ".cache",
+    ".coverage",
+    "coverage",
+    ".idea",
+    ".vscode",
+    ".git",
+    ".DS_Store",
+    "assets",
+    "public/vite.svg",
+    "*.ico",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.svg",
+    "*.webp",
+    "playwright-report",
+    "test-results",
+    "tests/e2e",
+    "__tests__",
+    "*.spec.ts",
+    "*.test.tsx",
+    "scripts/context_provider",
+    "*.pyc",
+    "*.pyo",
+    "*.log",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "uv.lock",
+    "pyproject.toml",
+    "requirements.txt",
+    "tsconfig.node.json",
+    "tsconfig.app.json",
+    "postcss.config.js",
+    "tailwind.config.js",
+    "vite.config.ts",
+    "eslint.config.js",
+    "README.md",
+    "docs/learn.txt",
+    "apps\\ory\\data\\"
+  ],
+  "last_folder": "D:/git_repos/monorepo",
+  "pane_sizes": {
+    "main_split": [
+      189,
+      1450
+    ],
+    "tree_split": [
+      383,
+      735
+    ]
+  },
+  "table_columns": {
+    "path_table": {
+      "select": 45,
+      "line": 37,
+      "path": 210,
+      "lines": 60
+    }
+  }
+}

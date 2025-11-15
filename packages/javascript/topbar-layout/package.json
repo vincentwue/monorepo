@@ -1,0 +1,30 @@
+﻿{
+  "name": "@monorepo/topbar-layout",
+  "version": "0.1.0",
+  "description": "Shared authenticated top bar layout with logout + settings dropdown.",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "dev": "pnpm --filter @monorepo/topbar-layout-examples dev",
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@monorepo/auth": "workspace:*",
+    "axios": "^1.7.9",
+    "lucide-react": "^0.469.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.26",
+    "@types/react-dom": "^18.3.7",
+    "typescript": "^5.9.3"
+  }
+}

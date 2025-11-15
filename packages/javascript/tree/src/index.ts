@@ -1,6 +1,7 @@
 // src/index.ts
-export { TreeProvider } from "./TreeProvider";
-export { useTreeState, useTreeActions } from "./hooks";
 export * from "./actions";
-export * from "./types";
+export { useTreeActions, useTreeState } from "./hooks";
 export { listRegisteredTrees } from "./registry";
+export { TreeKeyboardShortcuts } from "./TreeKeyboardShortcuts";
+export { TreeProvider } from "./TreeProvider";
+export * from "./types";

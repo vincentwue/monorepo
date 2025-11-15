@@ -1,0 +1,42 @@
+src/__pycache__/
+
+# --- Python build / virtual environment ---------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.so
+*.dll
+*.dylib
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+*.env
+
+# --- PyInstaller build artifacts -----------------------------
+build/
+dist/
+*.spec
+
+# --- UV / package manager caches -----------------------------
+uv.lock
+.uv-cache/
+.uv/
+
+# --- IDE / editor junk --------------------------------------
+.vscode/
+.idea/
+*.code-workspace
+
+# --- OS junk ------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---------------------------------------------------
+*.log
+logs/

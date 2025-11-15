@@ -11,6 +11,7 @@
     ]
   },
   "devDependencies": {
+    "@types/node": "^24.9.2",
     "@types/react": "^18.3.26",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^5.1.0",
@@ -21,7 +22,9 @@
     "vite": "^7.1.12"
   },
   "dependencies": {
+    "path": "^0.12.7",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "vitest": "^4.0.6"
   }
 }

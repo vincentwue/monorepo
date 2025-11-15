@@ -1,0 +1,16 @@
+[project]
+name = "entitlements"
+version = "0.1.0"
+description = "Shared entitlements and plan limits for multiple products (ideas, music_video, etc.)"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.0.0",
+  "pymongo>=4.8.0",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["entitlements"]

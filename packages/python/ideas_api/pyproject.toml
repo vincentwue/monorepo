@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ideas_api"
+version = "0.1.0"
+description = "FastAPI router exposing Ideas endpoints."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "httpx",
+    "pydantic>=2.0",
+    "ideas_repo",
+]

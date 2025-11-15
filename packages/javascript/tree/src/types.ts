@@ -19,11 +19,25 @@ export interface TreeState {
 }
 
 export interface TreeActions {
+  // basic reducer actions
   setNodes: (nodes: BaseNode[]) => void;
   select: (id: string | null) => void;
   toggleExpanded: (id: string) => void;
   setExpanded: (ids: string[]) => void;
   setInlineCreate: (inlineCreate: TreeInlineCreateState | null) => void;
+
+  // extended mutation helpers
+  indent: (id: string) => void;
+  outdent: (id: string) => void;
+  moveUp: (id: string) => void;
+  moveDown: (id: string) => void;
+  rename: (id: string, title: string) => void;
+  delete: (id: string) => void;
+
+  beginInlineCreate: (params: any) => void;
+  addInlineCreatePlaceholder: (payload: any) => void;
+  cancelInlineCreate: (tempId: string) => void;
+  confirmInlineCreate: (params: any) => void;
 }
 
 export interface TreePersistence {

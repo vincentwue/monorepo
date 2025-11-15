@@ -1,22 +1,77 @@
-import React from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { MongoExplorer } from "@monorepo/mongo-explorer";
-import { addIdea, RootState } from "@monorepo/store";
+import { RequireAuth, useSession } from "@monorepo/auth";
+import { useEffect } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+
+import { FocusOverlay } from "./components/FocusOverlay";
+import { IdeasTreePage } from "./features/ideas/IdeasTreePage";
+import { TopBarLayout } from "./layout/TopBarLayout";
+
+const AUTH_UI_BASE_URL =
+  import.meta.env.VITE_AUTH_UI_BASE_URL ?? "http://localhost:5173";
+const APP_BASE_URL =
+  import.meta.env.VITE_APP_BASE_URL ?? "http://localhost:5174";
 
 export default function App() {
-  const dispatch = useDispatch();
-  const ideas = useSelector((state: RootState) => state.ideas.items);
+  useEffect(() => {
+    console.log("[App] initialized web client");
+  }, []);
+
+  const currentUrl = window.location.href;
 
   return (
-    <div style={{ padding: 30 }}>
-      <h1>Ideas</h1>
-      <button onClick={() => dispatch(addIdea("New idea"))}>Add Idea</button>
-      <ul>
-        {ideas.map((i, idx) => (
-          <li key={idx}>{i}</li>
-        ))}
-      </ul>
-      <MongoExplorer />
-    </div>
+    <BrowserRouter>
+      <TopBarLayout>
+        {/* 👇 Render login button if logged out */}
+        <SessionAwareLoginButton
+          authUrl={`${AUTH_UI_BASE_URL}/login?return_to=${encodeURIComponent(
+            currentUrl || APP_BASE_URL
+          )}`}
+        />
+
+        <div className="relative flex h-full min-h-0 flex-1 flex-col gap-4 bg-slate-900 p-4 text-white">
+          <div className="flex h-full min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-800/70 bg-slate-900/80">
+            <Routes>
+              <Route
+                path="/*"
+                element={
+                  <RequireAuth
+                    skipRedirect
+                    redirectTo={`${AUTH_UI_BASE_URL}/login?return_to=${encodeURIComponent(
+                      currentUrl || APP_BASE_URL
+                    )}`}
+                  >
+                    <IdeasTreePage />
+                  </RequireAuth>
+                }
+              />
+            </Routes>
+          </div>
+        </div>
+
+        <FocusOverlay />
+      </TopBarLayout>
+    </BrowserRouter>
+  );
+}
+
+// ---------------------------------------------------------
+// 🔥 New: Login button that auto-hides when logged in
+// ---------------------------------------------------------
+
+function SessionAwareLoginButton({ authUrl }: { authUrl: string }) {
+  const { session, loading } = useSession();
+
+  if (loading) return null;
+  if (session) return null;
+
+  return (
+    <button
+      onClick={() => {
+        window.location.href = authUrl;
+      }}
+      className="absolute top-3 left-3 rounded-md bg-white/10 px-3 py-1 text-sm hover:bg-white/20 border border-white/20"
+    >
+      Login
+    </button>
   );
 }

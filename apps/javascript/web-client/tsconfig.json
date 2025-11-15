@@ -1,40 +1,19 @@
 {
-    "extends": "../../../tsconfig.base.json",
-    "compilerOptions": {
-        /* Output */
-        "outDir": "dist",
-        "rootDir": "src",
-        /* Module system */
-        "module": "ESNext",
-        "target": "ESNext",
-        "moduleResolution": "Bundler",
-        "types": [
-            "vite/client"
-        ],
-        /* JSX / React */
-        "jsx": "react-jsx",
-        /* Path + import ergonomics */
-        "baseUrl": ".",
-        "allowJs": false,
-        "esModuleInterop": true,
-        "forceConsistentCasingInFileNames": true,
-        "resolveJsonModule": true,
-        "skipLibCheck": true,
-        "strict": true,
-        "paths": {
-            "@monorepo/store": [
-                "../../packages/store/src"
-            ],
-            "@monorepo/mongo-explorer": [
-                "../../packages/mongo-explorer/src"
-            ]
-        }
-    },
-    "include": [
-        "src"
-    ],
-    "exclude": [
-        "node_modules",
-        "dist"
-    ]
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "strict": true,
+    "baseUrl": "src",
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.tsbuildinfo",
+    "paths": {
+      "@monorepo/*": ["../../../../packages/javascript/*/src"],
+      "@ideas/tree-client": ["../../../../packages/javascript/ideas-tree-client/src"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
 }

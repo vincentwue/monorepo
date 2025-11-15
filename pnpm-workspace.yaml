@@ -1,3 +1,5 @@
 packages:
+  - "apps/*"
   - "apps/javascript/*"
   - "packages/javascript/*"
+  - "packages/javascript/topbar-layout/examples"

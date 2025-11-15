@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "core_server"
+version = "0.1.0"
+description = "FastAPI application composing routers like ideas_api."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "ideas_api",
+    "permissions",
+]
