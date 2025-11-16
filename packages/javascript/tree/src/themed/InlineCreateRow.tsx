@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { NodeTreeNode } from "../internal/buildNodeTree";
 import type { TreeActions, TreeInlineCreateState } from "../types";
+import { getIndentStyle } from "./nodeStyle";
 
 interface InlineCreateRowProps {
   node: NodeTreeNode;
@@ -9,9 +10,12 @@ interface InlineCreateRowProps {
   actions: TreeActions;
 }
 
-const ROW_INDENT = 30;
-
-export function InlineCreateRow({ node, depth, inlineCreate, actions }: InlineCreateRowProps) {
+export function InlineCreateRow({
+  node,
+  depth,
+  inlineCreate,
+  actions,
+}: InlineCreateRowProps) {
   const [value, setValue] = useState(node.title ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,36 +53,65 @@ export function InlineCreateRow({ node, depth, inlineCreate, actions }: InlineCr
     }
   };
 
+  const indentStyle = getIndentStyle(depth);
+
   return (
     <div
       style={{
-        marginLeft: depth * ROW_INDENT,
-        marginTop: 10,
-        borderRadius: 10,
-        padding: "8px 16px",
-        background: "#101426",
-        boxShadow: "0 10px 25px rgba(0,0,0,0.45)",
-        borderLeft: "4px solid #ff8a65",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 12,
+        ...indentStyle,
       }}
     >
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="New node title"
+      {/* placeholder for +/- button so layout matches TreeNodeSurface */}
+      <div style={{ width: 20 }} />
+
+      {/* inline-create "node surface" */}
+      <div
         style={{
-          width: "100%",
-          padding: "6px 8px",
-          borderRadius: 8,
-          border: "1px solid rgba(255,255,255,0.2)",
-          background: "rgba(255,255,255,0.04)",
-          color: "#fff",
+          flexGrow: 1,
+          background: "#101426",
+          borderRadius: 10,
+          padding: "8px 16px",
+          boxShadow: "0 6px 16px rgba(0,0,0,0.35)",
+          border: "2px solid rgba(120,200,255,0.9)",
+          color: "#f6f3ff",
           fontFamily: '"Source Sans 3", "Inter", system-ui, sans-serif',
+          fontSize: 16,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
         }}
-      />
-      <div style={{ fontSize: 12, color: "#cbd5f5", marginTop: 6 }}>
-        Enter to confirm · Esc to cancel
+      >
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="New node title"
+          style={{
+            width: "100%",
+            padding: "6px 8px",
+            borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.25)",
+            background: "rgba(255,255,255,0.04)",
+            color: "#fff",
+            fontFamily: '"Source Sans 3", "Inter", system-ui, sans-serif',
+            fontSize: 16,
+            outline: "none",
+          }}
+        />
+        <div
+          style={{
+            fontSize: 12,
+            color: "#cbd5f5",
+            marginTop: 6,
+          }}
+        >
+          Enter to confirm · Esc to cancel
+        </div>
       </div>
     </div>
   );

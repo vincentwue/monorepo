@@ -1,83 +1,21 @@
 // src/TreeKeyboardShortcuts.tsx
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { startEditSession } from "./editEvents";
+import { DEFAULT_TREE_SHORTCUTS } from "./keyboard/defaultShortcuts";
+import { shortcutHandlers } from "./keyboard/handlers";
+import {
+  type NormalizedShortcut,
+  type TreeKeyboardShortcut,
+  type TreeKeyboardShortcutAction,
+  type TreeShortcutCondition,
+} from "./keyboard/types";
+import {
+  computeVisibleNodeIds,
+  conditionMatches,
+  doesEventMatchShortcut,
+  normalizeShortcut,
+} from "./keyboard/utils";
 import { useTreeActions, useTreeState } from "./hooks";
-import type { NodeTreeNode } from "./internal/buildNodeTree";
-import type { TreeActions, TreeState } from "./types";
-
-type ModifierState = {
-  alt: boolean;
-  ctrl: boolean;
-  meta: boolean;
-  shift: boolean;
-};
-
-export type TreeShortcutCondition = "inlineCreateActive";
-
-export type TreeKeyboardShortcutAction =
-  | "tree.selectRelative"
-  | "tree.expand"
-  | "tree.collapse"
-  | "tree.collapseToParent"
-  | "tree.move"
-  | "tree.indent"
-  | "tree.outdent"
-  | "tree.editTitle"
-  | "tree.inlineCreate"
-  | "tree.delete";
-
-export interface TreeKeyboardShortcut {
-  key: string;
-  action: TreeKeyboardShortcutAction;
-  args?: Record<string, any>;
-  when?: TreeShortcutCondition;
-}
-
-export const DEFAULT_TREE_SHORTCUTS: TreeKeyboardShortcut[] = [
-  {
-    key: "ArrowUp",
-    action: "tree.selectRelative",
-    args: { direction: "prev" },
-  },
-  {
-    key: "ArrowDown",
-    action: "tree.selectRelative",
-    args: { direction: "next" },
-  },
-  {
-    key: "ArrowRight",
-    action: "tree.expand",
-  },
-  {
-    key: "ArrowLeft",
-    action: "tree.collapse",
-  },
-  { key: "Alt+ArrowUp", action: "tree.move", args: { direction: "up" } },
-  { key: "Alt+ArrowDown", action: "tree.move", args: { direction: "down" } },
-  { key: "Alt+ArrowRight", action: "tree.indent" },
-  { key: "Alt+ArrowLeft", action: "tree.outdent" },
-  { key: "E", action: "tree.editTitle" },
-  // inline create lifecycle
-  {
-    key: "Ctrl+Enter",
-    action: "tree.inlineCreate",
-    args: { intent: "start" },
-  },
-  {
-    key: "Enter",
-    action: "tree.inlineCreate",
-    args: { intent: "confirm" },
-    when: "inlineCreateActive",
-  },
-  {
-    key: "Escape",
-    action: "tree.inlineCreate",
-    args: { intent: "cancel" },
-    when: "inlineCreateActive",
-  },
-  { key: "Delete", action: "tree.delete" },
-];
 
 interface TreeKeyboardShortcutsProps {
   treeKey: string;
@@ -88,287 +26,7 @@ interface TreeKeyboardShortcutsProps {
   active?: boolean;
 }
 
-interface NormalizedShortcut extends TreeKeyboardShortcut {
-  modifiers: ModifierState;
-  normalizedKey: string;
-}
-
-interface ShortcutRuntime {
-  state: TreeState;
-  actions: TreeActions;
-  visibleNodeIds: string[];
-  nodeMap: Map<string, NodeTreeNode>;
-  expandedSet: Set<string>;
-}
-
-type ShortcutHandler = (input: {
-  runtime: ShortcutRuntime;
-  shortcut: TreeKeyboardShortcut;
-}) => boolean;
-
-const parseKeyDescriptor = (descriptor: string): {
-  modifiers: ModifierState;
-  key: string;
-} => {
-  const parts = descriptor
-    .split("+")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  const modifiers: ModifierState = {
-    alt: false,
-    ctrl: false,
-    meta: false,
-    shift: false,
-  };
-  const keyPart = parts.pop() ?? "";
-
-  for (const mod of parts) {
-    const normalized = mod.toLowerCase();
-    if (normalized === "ctrl" || normalized === "control") modifiers.ctrl = true;
-    else if (normalized === "shift") modifiers.shift = true;
-    else if (normalized === "alt" || normalized === "option") modifiers.alt = true;
-    else if (normalized === "meta" || normalized === "cmd" || normalized === "command")
-      modifiers.meta = true;
-  }
-
-  return { modifiers, key: normalizeKey(keyPart) };
-};
-
-const normalizeKey = (value: string): string => {
-  const normalized = value.toLowerCase();
-  if (normalized === " ") return "space";
-  if (normalized === "spacebar") return "space";
-  return normalized;
-};
-
-const normalizeShortcut = (shortcut: TreeKeyboardShortcut): NormalizedShortcut => {
-  const { modifiers, key } = parseKeyDescriptor(shortcut.key);
-  return {
-    ...shortcut,
-    modifiers,
-    normalizedKey: key,
-  };
-};
-
-/**
- * Compute the list of *visible* node ids, i.e. nodes whose entire
- * ancestor chain is expanded. Root nodes are always visible.
- * This fixes ArrowUp/ArrowDown so they skip children of collapsed nodes.
- */
-const computeVisibleNodeIds = (
-  flat: NodeTreeNode[],
-  expandedIds: string[]
-): string[] => {
-  const expandedSet = new Set(expandedIds);
-  const byId = new Map(flat.map((n) => [n._id, n]));
-  const result: string[] = [];
-
-  const isVisible = (node: NodeTreeNode): boolean => {
-    const parentId = node.parent_id;
-    if (!parentId) return true; // root visible
-    let currentId: string | null = parentId;
-    while (currentId) {
-      if (!expandedSet.has(currentId)) return false;
-      const parent = byId.get(currentId);
-      currentId = parent?.parent_id ?? null;
-    }
-    return true;
-  };
-
-  for (const node of flat) {
-    if (!node._id) continue;
-    if (isVisible(node)) {
-      result.push(node._id);
-    }
-  }
-
-  return result;
-};
-
-const doesEventMatchShortcut = (
-  shortcut: NormalizedShortcut,
-  event: KeyboardEvent
-): boolean => {
-  if (event.altKey !== shortcut.modifiers.alt) return false;
-  if (event.ctrlKey !== shortcut.modifiers.ctrl) return false;
-  if (event.metaKey !== shortcut.modifiers.meta) return false;
-  if (event.shiftKey !== shortcut.modifiers.shift) return false;
-  const eventKey = normalizeKey(event.key);
-  return eventKey === shortcut.normalizedKey;
-};
-
-const conditionMatches = (
-  shortcut: TreeKeyboardShortcut,
-  runtime: ShortcutRuntime
-): boolean => {
-  if (!shortcut.when) return true;
-  switch (shortcut.when) {
-    case "inlineCreateActive":
-      return !!runtime.state.inlineCreate;
-    default:
-      return true;
-  }
-};
-
-const shortcutHandlers: Record<TreeKeyboardShortcutAction, ShortcutHandler> = {
-  "tree.selectRelative": ({ runtime, shortcut }) => {
-    const direction = shortcut.args?.direction === "prev" ? -1 : 1;
-    const ids = runtime.visibleNodeIds;
-    if (!ids.length) return false;
-    const selected = runtime.state.selectedId;
-    if (!selected) {
-      runtime.actions.select(direction === -1 ? ids[ids.length - 1] : ids[0]);
-      return true;
-    }
-
-    const index = ids.indexOf(selected);
-    const fallbackIndex = direction === -1 ? ids.length - 1 : 0;
-    const currentIndex = index === -1 ? fallbackIndex : index;
-    const nextIndex =
-      direction === -1
-        ? Math.max(0, currentIndex - 1)
-        : Math.min(ids.length - 1, currentIndex + 1);
-
-    if (nextIndex !== currentIndex || index === -1) {
-      runtime.actions.select(ids[nextIndex]);
-      return true;
-    }
-    return false;
-  },
-  "tree.expand": ({ runtime }) => {
-    const selectedId = runtime.state.selectedId;
-    if (!selectedId) return false;
-    const node = runtime.nodeMap.get(selectedId);
-    if (!node) return false;
-    const hasChildren = !!node.children?.length;
-    if (!hasChildren) return false;
-
-    if (!runtime.expandedSet.has(selectedId)) {
-      runtime.actions.toggleExpanded(selectedId);
-      return true;
-    }
-    return false;
-  },
-  "tree.collapseToParent": ({ runtime }) => {
-    const selectedId = runtime.state.selectedId;
-    if (!selectedId) return false;
-    const node = runtime.nodeMap.get(selectedId);
-    if (!node) return false;
-    if (runtime.expandedSet.has(selectedId)) {
-      runtime.actions.toggleExpanded(selectedId);
-      return true;
-    }
-    if (node.parent_id) {
-      runtime.actions.select(node.parent_id);
-      return true;
-    }
-    return false;
-  },
-  "tree.collapse": ({ runtime }) => {
-    const selectedId = runtime.state.selectedId;
-    if (!selectedId) return false;
-    if (runtime.expandedSet.has(selectedId)) {
-      runtime.actions.toggleExpanded(selectedId);
-      return true;
-    }
-    return false;
-  },
-
-  "tree.move": ({ runtime, shortcut }) => {
-    const selectedId = runtime.state.selectedId;
-    if (!selectedId) return false;
-    const direction = shortcut.args?.direction === "up" ? "up" : "down";
-    if (direction === "up") runtime.actions.moveUp(selectedId);
-    else runtime.actions.moveDown(selectedId);
-    return true;
-  },
-  "tree.indent": ({ runtime }) => {
-    const selectedId = runtime.state.selectedId;
-    if (!selectedId) return false;
-    runtime.actions.indent(selectedId);
-    return true;
-  },
-  "tree.outdent": ({ runtime }) => {
-    const selectedId = runtime.state.selectedId;
-    if (!selectedId) return false;
-    runtime.actions.outdent(selectedId);
-    return true;
-  },
-  "tree.editTitle": ({ runtime }) => {
-    const inlineState = runtime.state.inlineCreate;
-    const selectedId = runtime.state.selectedId;
-    if (!selectedId) return false;
-
-    if (inlineState) {
-      window.dispatchEvent(
-        new CustomEvent("tree-inline-edit-focus", { detail: inlineState.tempId })
-      );
-      return true;
-    }
-
-    startEditSession(selectedId);
-    window.dispatchEvent(
-      new CustomEvent("tree-inline-edit-focus", { detail: selectedId })
-    );
-    return true;
-  },
-  "tree.inlineCreate": ({ runtime, shortcut }) => {
-    const intent = shortcut.args?.intent as
-      | "start"
-      | "confirm"
-      | "cancel"
-      | undefined;
-    if (!intent) return false;
-
-    if (intent === "start") {
-      const selectedId = runtime.state.selectedId;
-      if (!selectedId || runtime.state.inlineCreate) return false;
-      const sourceNode = runtime.nodeMap.get(selectedId);
-      const tempId =
-        shortcut.args?.tempId || `temp-${Math.random().toString(36).slice(2)}`;
-      const afterId = shortcut.args?.afterId ?? selectedId;
-      const placeholderTitle = shortcut.args?.title ?? "New node";
-      const parentId = shortcut.args?.parentId ?? sourceNode?.parent_id ?? null;
-
-      runtime.actions.beginInlineCreate({
-        tempId,
-        sourceId: selectedId,
-        afterId: shortcut.args?.afterId,
-        parentId: shortcut.args?.parentId,
-      });
-      runtime.actions.addInlineCreatePlaceholder({
-        afterId,
-        node: { _id: tempId, title: placeholderTitle, parent_id: parentId },
-      });
-      return true;
-    }
-
-    const inlineState = runtime.state.inlineCreate;
-    if (!inlineState) return false;
-
-    if (intent === "confirm") {
-      runtime.actions.confirmInlineCreate({
-        tempId: inlineState.tempId,
-        nodeId: shortcut.args?.nodeId,
-      });
-      return true;
-    }
-    if (intent === "cancel") {
-      runtime.actions.cancelInlineCreate(inlineState.tempId);
-      return true;
-    }
-    return false;
-  },
-  "tree.delete": ({ runtime }) => {
-    const selectedId = runtime.state.selectedId;
-    if (!selectedId) return false;
-    runtime.actions.delete(selectedId);
-    return true;
-  },
-};
-
 export const TreeKeyboardShortcuts = ({
-  treeKey,
   children,
   shortcuts,
   shortcutsActive,
@@ -380,7 +38,7 @@ export const TreeKeyboardShortcuts = ({
   const providedActive = shortcutsActive ?? active;
   const isControlled = providedActive !== undefined;
   const [internalActive, setInternalActive] = useState(() =>
-    providedActive !== undefined ? !!providedActive : false
+    providedActive !== undefined ? !!providedActive : false,
   );
   const [hasFocus, setHasFocus] = useState(false);
   const enabled = isControlled ? !!providedActive : internalActive;
@@ -412,25 +70,22 @@ export const TreeKeyboardShortcuts = ({
 
   const visibleNodeIds = useMemo(
     () => computeVisibleNodeIds(state.flat, state.expandedIds),
-    [state.flat, state.expandedIds]
+    [state.flat, state.expandedIds],
   );
 
   const nodeMap = useMemo(
     () => new Map(state.flat.map((node) => [node._id, node])),
-    [state.flat]
+    [state.flat],
   );
 
-  const expandedSet = useMemo(
-    () => new Set(state.expandedIds),
-    [state.expandedIds]
-  );
+  const expandedSet = useMemo(() => new Set(state.expandedIds), [state.expandedIds]);
 
   const shortcutsRef = useRef<NormalizedShortcut[]>(normalizedShortcuts);
   useEffect(() => {
     shortcutsRef.current = normalizedShortcuts;
   }, [normalizedShortcuts]);
 
-  const runtimeRef = useRef<ShortcutRuntime>({
+  const runtimeRef = useRef({
     state,
     actions,
     visibleNodeIds,
@@ -466,8 +121,7 @@ export const TreeKeyboardShortcuts = ({
       ]);
 
       for (const shortcut of shortcutsList) {
-        if (isEditableTarget && !allowedWhileEditing.has(shortcut.action))
-          continue;
+        if (isEditableTarget && !allowedWhileEditing.has(shortcut.action)) continue;
         if (isEditableTarget && shortcut.action === "tree.inlineCreate") {
           const intent = shortcut.args?.intent;
           if (intent === "start") continue;
@@ -527,3 +181,10 @@ export const TreeKeyboardShortcuts = ({
     </div>
   );
 };
+
+export type {
+  TreeKeyboardShortcut,
+  TreeKeyboardShortcutAction,
+  TreeShortcutCondition,
+} from "./keyboard/types";
+export { DEFAULT_TREE_SHORTCUTS } from "./keyboard/defaultShortcuts";
