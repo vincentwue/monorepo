@@ -18,26 +18,46 @@ ROOT_ID = "ROOT"
 _KIND = "node"
 ROOT_RESOURCE_KEY = "root"
 
-_ROOT_PERMISSION_CACHE: set[str] = set()
-_ROOT_PERMISSION_LOCK = asyncio.Lock()
+# Optional: visible name for the “root idea” node.
+DEFAULT_ROOT_TITLE = "My ideas"
 
 _ROOT_PERMISSION_CACHE: set[str] = set()
 _ROOT_PERMISSION_LOCK = asyncio.Lock()
 
 
 def _workspace_root_object_id(workspace_id: str) -> str:
+    """Fully-qualified Keto object id for the workspace's root ideas space."""
     return build_object_id(IDEAS_NAMESPACE, _KIND, f"{workspace_id}:{ROOT_RESOURCE_KEY}")
 
 
-def _node_object_id(workspace_id: str, node_id: str) -> str:
-    resource_id = _resource_id(workspace_id, node_id)
-    return build_object_id(IDEAS_NAMESPACE, _KIND, resource_id)
+def _resource_id(workspace_id: str, node_id: Optional[str]) -> str:
+    """Logical resource id part used with build_object_id / Keto checks."""
+    if not node_id:
+        return f"{workspace_id}:{ROOT_RESOURCE_KEY}"
+    return f"{workspace_id}:{node_id}"
+
+
+def _collection():
+    return get_db()[COLLECTION_NAME]
+
+
+def _doc_to_model(doc: dict) -> IdeaNode:
+    return IdeaNode(
+        id=str(doc.get("_id") or doc["id"]),
+        parent_id=doc.get("parent_id"),
+        title=doc["title"],
+        note=doc.get("note"),
+        rank=float(doc.get("rank", 0)),
+        owner_id=doc.get("workspace_id") or doc.get("owner_id"),
+    )
 
 
 async def _ensure_root_permissions(user_id: str, workspace_id: str) -> None:
     """
-    Ensure the requesting user has the default viewer/editor permissions
+    Ensure the requesting user has default viewer/editor permissions
     on their personal root node so first-time access succeeds.
+
+    This is the *only* object we use for permission checks in the MVP.
     """
 
     cache_key = f"{user_id}:{workspace_id}"
@@ -61,25 +81,40 @@ async def _ensure_root_permissions(user_id: str, workspace_id: str) -> None:
         _ROOT_PERMISSION_CACHE.add(cache_key)
 
 
-def _resource_id(workspace_id: str, node_id: Optional[str]) -> str:
-    if not node_id:
-        return f"{workspace_id}:{ROOT_RESOURCE_KEY}"
-    return f"{workspace_id}:{node_id}"
+async def _get_or_create_root_node(workspace_id: str, user_id: str) -> dict:
+    """
+    Ensure there is exactly one persisted 'root idea' node per workspace.
 
+    - It has `parent_id = None`
+    - It is marked with `is_root: True`
+    - We grant viewer/editor permissions to the user that caused it to exist.
+    """
 
-def _collection():
-    return get_db()[COLLECTION_NAME]
+    collection = _collection()
 
-
-def _doc_to_model(doc: dict) -> IdeaNode:
-    return IdeaNode(
-        id=str(doc.get("_id") or doc["id"]),
-        parent_id=doc.get("parent_id"),
-        title=doc["title"],
-        note=doc.get("note"),
-        rank=float(doc.get("rank", 0)),
-        owner_id=doc.get("workspace_id") or doc.get("owner_id"),
+    # Look for an existing root node for this workspace.
+    existing = await collection.find_one(
+        {"workspace_id": workspace_id, "parent_id": None, "is_root": True}
     )
+    if existing:
+        return existing
+
+    # Create a new root idea node.
+    node_id = uuid4().hex
+    doc = {
+        "_id": node_id,
+        "parent_id": None,
+        "title": DEFAULT_ROOT_TITLE,
+        "note": None,
+        "rank": 0.0,
+        "workspace_id": workspace_id,
+        "is_root": True,
+    }
+    await collection.insert_one(doc)
+
+    # Grant permissions on this node to the current user.
+    await _grant_node_permissions(workspace_id, user_id, node_id)
+    return doc
 
 
 async def list_children_for_user(
@@ -89,16 +124,18 @@ async def list_children_for_user(
 ) -> List[IdeaNode]:
     """List child nodes visible to the user under the provided parent."""
 
-    if parent_id is None:
-        await _ensure_root_permissions(user_id, workspace_id)
-
+    # Ensure root entitlements exist and enforce "viewer" on the workspace root.
+    await _ensure_root_permissions(user_id, workspace_id)
     await require_user_permission(
         namespace=IDEAS_NAMESPACE,
         kind=_KIND,
-        resource_id=_resource_id(workspace_id, parent_id),
+        resource_id=_resource_id(workspace_id, None),  # workspace root
         relation="viewer",
         user_id=user_id,
     )
+
+    # Make sure the root idea node exists for this workspace.
+    await _get_or_create_root_node(workspace_id, user_id)
 
     collection = _collection()
     cursor = (
@@ -117,10 +154,13 @@ async def list_tree_for_user(workspace_id: str, user_id: str) -> List[IdeaNode]:
     await require_user_permission(
         namespace=IDEAS_NAMESPACE,
         kind=_KIND,
-        resource_id=_resource_id(workspace_id, None),
+        resource_id=_resource_id(workspace_id, None),  # workspace root
         relation="viewer",
         user_id=user_id,
     )
+
+    # Ensure the root idea exists before returning the tree.
+    await _get_or_create_root_node(workspace_id, user_id)
 
     collection = _collection()
     cursor = (
@@ -152,18 +192,28 @@ async def create_child_for_user(
     title: str,
     note: Optional[str] = None,
 ) -> IdeaNode:
-    """Create a child node and append it to the end of the sibling list."""
+    """
+    Create a child node and append it to the end of the sibling list.
 
-    if parent_id is None:
-        await _ensure_root_permissions(user_id, workspace_id)
+    IMPORTANT: Users cannot create additional "root" ideas.
+    - If parent_id is None, we automatically attach the new idea to
+      the workspace's root idea node.
+    """
 
+    # Root permissions + "editor" on workspace root is enough to create anywhere.
+    await _ensure_root_permissions(user_id, workspace_id)
     await require_user_permission(
         namespace=IDEAS_NAMESPACE,
         kind=_KIND,
-        resource_id=_resource_id(workspace_id, parent_id),
+        resource_id=_resource_id(workspace_id, None),  # workspace root
         relation="editor",
         user_id=user_id,
     )
+
+    # If no parent was specified, attach to the (single) root idea node.
+    if parent_id is None:
+        root_doc = await _get_or_create_root_node(workspace_id, user_id)
+        parent_id = str(root_doc["_id"])
 
     collection = _collection()
     rank = await _next_rank(workspace_id, parent_id)
@@ -175,14 +225,19 @@ async def create_child_for_user(
         "note": note,
         "rank": rank,
         "workspace_id": workspace_id,
+        # NOTE: this is a normal idea, not a root:
+        "is_root": False,
     }
     await collection.insert_one(doc)
+
+    # We still grant per-node tuples for future finer-grained models.
     await _grant_node_permissions(workspace_id, user_id, node_id)
     return _doc_to_model(doc)
 
 
 async def _grant_node_permissions(workspace_id: str, user_id: str, node_id: str) -> None:
-    object_id = _node_object_id(workspace_id, node_id)
+    """Grant viewer/editor on a specific node (reserved for future fine-grain ACL)."""
+    object_id = build_object_id(IDEAS_NAMESPACE, _KIND, _resource_id(workspace_id, node_id))
     subject = user_subject(user_id)
     for relation in ("viewer", "editor"):
         await keto_write(
@@ -210,25 +265,26 @@ async def move_node_for_user(
     """Move a node to a new parent and append it to the end."""
 
     node = await _fetch_node_for_user(workspace_id, user_id, node_id)
-    old_parent_id = node.get("parent_id")
 
-    if old_parent_id is None or new_parent_id is None:
-        await _ensure_root_permissions(user_id, workspace_id)
+    # Do not allow moving the root idea itself.
+    if node.get("is_root") and node.get("parent_id") is None:
+        # Simply return unchanged; root is immovable.
+        return _doc_to_model(node)
 
+    # Root permissions + "editor" on workspace root control moving anywhere.
+    await _ensure_root_permissions(user_id, workspace_id)
     await require_user_permission(
         namespace=IDEAS_NAMESPACE,
         kind=_KIND,
-        resource_id=_resource_id(workspace_id, old_parent_id),
+        resource_id=_resource_id(workspace_id, None),  # workspace root
         relation="editor",
         user_id=user_id,
     )
-    await require_user_permission(
-        namespace=IDEAS_NAMESPACE,
-        kind=_KIND,
-        resource_id=_resource_id(workspace_id, new_parent_id),
-        relation="editor",
-        user_id=user_id,
-    )
+
+    # If someone tries to move under "no parent", normalize to root node.
+    if new_parent_id is None:
+        root_doc = await _get_or_create_root_node(workspace_id, user_id)
+        new_parent_id = str(root_doc["_id"])
 
     rank = await _next_rank(workspace_id, new_parent_id)
     collection = _collection()
@@ -251,15 +307,19 @@ async def reorder_node_for_user(
 
     _ = target_rank  # reserved for future precise rank updates
     node = await _fetch_node_for_user(workspace_id, user_id, node_id)
+
+    # Root idea is not reorderable relative to anything (it has no siblings).
+    if node.get("is_root") and node.get("parent_id") is None:
+        return _doc_to_model(node)
+
     parent_id = node.get("parent_id")
 
-    if parent_id is None:
-        await _ensure_root_permissions(user_id, workspace_id)
-
+    # Root permissions + "editor" on workspace root control reordering anywhere.
+    await _ensure_root_permissions(user_id, workspace_id)
     await require_user_permission(
         namespace=IDEAS_NAMESPACE,
         kind=_KIND,
-        resource_id=_resource_id(workspace_id, parent_id),
+        resource_id=_resource_id(workspace_id, None),  # workspace root
         relation="editor",
         user_id=user_id,
     )
@@ -293,3 +353,61 @@ async def reorder_node_for_user(
 
     node.update({"rank": swap_rank})
     return _doc_to_model(node)
+
+
+async def delete_node_for_user(
+    workspace_id: str,
+    user_id: str,
+    node_id: str,
+) -> None:
+    """
+    Delete a node and its entire subtree.
+
+    Constraints:
+    - The "root idea" (parent_id is None and is_root is True) cannot be deleted.
+    """
+
+    # Make sure the node exists (and is in this workspace).
+    node = await _fetch_node_for_user(workspace_id, user_id, node_id)
+
+    # Do not allow deleting the root idea.
+    if node.get("is_root") and node.get("parent_id") is None:
+        # No-op. Caller sees 204 but root remains.
+        return
+
+    # Root permissions + "editor" on workspace root control deletion anywhere.
+    await _ensure_root_permissions(user_id, workspace_id)
+    await require_user_permission(
+        namespace=IDEAS_NAMESPACE,
+        kind=_KIND,
+        resource_id=_resource_id(workspace_id, None),  # workspace root
+        relation="editor",
+        user_id=user_id,
+    )
+
+    collection = _collection()
+
+    # Collect subtree ids starting at node_id
+    to_visit = [node_id]
+    all_ids = [node_id]
+
+    while to_visit:
+        current = to_visit.pop(0)
+        cursor = collection.find({"parent_id": current, "workspace_id": workspace_id})
+        children = [doc async for doc in cursor]
+        child_ids = [str(doc["_id"]) for doc in children]
+        if child_ids:
+            all_ids.extend(child_ids)
+            to_visit.extend(child_ids)
+
+    # Hard-delete the node and all descendants.
+    await collection.delete_many(
+        {
+            "_id": {"$in": all_ids},
+            "workspace_id": workspace_id,
+        }
+    )
+
+    # NOTE: We currently do not clean up per-node Keto tuples here.
+    # For the MVP (root-based checks), this is acceptable. We can add
+    # a keto_delete helper later if needed.

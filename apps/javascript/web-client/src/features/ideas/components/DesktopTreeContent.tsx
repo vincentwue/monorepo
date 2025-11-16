@@ -9,6 +9,7 @@ import { detectTreeMutation, type TreeMutation } from "./treeMutations";
 export interface DesktopTreeContentProps {
   onReorderNode: (nodeId: string, direction: ReorderDirection) => Promise<void>;
   onMoveNode: (nodeId: string, newParentId: string | null) => Promise<void>;
+  onDeleteNode: (nodeId: string) => Promise<void>;
   onCreateIdea: (parentId: string | null, title: string) => Promise<IdeaNodeView>;
   initialExpandedIds: string[];
   initialSelectedId: string | null;
@@ -25,6 +26,7 @@ type TreeStateNode = ReturnType<typeof useTreeState>["nodes"][number];
 export function DesktopTreeContent({
   onReorderNode,
   onMoveNode,
+  onDeleteNode,
   onCreateIdea,
   initialExpandedIds,
   initialSelectedId,
@@ -118,8 +120,10 @@ export function DesktopTreeContent({
       try {
         if (mutation.type === "move") {
           await onMoveNode(mutation.nodeId, mutation.newParentId);
-        } else {
+        } else if (mutation.type === "reorder") {
           await onReorderNode(mutation.nodeId, mutation.direction);
+        } else if (mutation.type === "delete") {
+          await onDeleteNode(mutation.nodeId);
         }
       } catch (err) {
         console.error("[DesktopIdeasTree] failed to sync tree mutation", err);
@@ -134,7 +138,7 @@ export function DesktopTreeContent({
       cancelled = true;
       syncingTreeMutationRef.current = false;
     };
-  }, [stateNodes, settingsHydrated, onMoveNode, onReorderNode]);
+  }, [stateNodes, settingsHydrated, onMoveNode, onReorderNode, onDeleteNode]);
 
   const hasTree = tree.length > 0;
 

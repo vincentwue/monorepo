@@ -1,44 +1,36 @@
-import { getOryPublicApiBaseUrl, useSession } from "@monorepo/auth"
-import axios from "axios"
-import { ChevronDown, LogOut, Settings, Shield } from "lucide-react"
-import {
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
-import { useNavigate } from "react-router-dom"
+import { LayoutGrid } from "lucide-react";
+import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import { IdentityMenu } from "./IdentityMenu";
 
 export interface TopBarLayoutProps {
-  children: ReactNode
+  children: ReactNode;
   /**
    * Name rendered in the left side of the top bar.
    */
-  appName?: string
+  appName?: string;
   /**
    * Route to navigate to when clicking the app name.
    */
-  homePath?: string
+  homePath?: string;
   /**
    * Route for the admin panel button.
    */
-  adminPath?: string
+  adminPath?: string;
   /**
    * Whether to display the admin panel shortcut.
    */
-  showAdminLink?: boolean
+  showAdminLink?: boolean;
   /**
    * Path to fall back to if Ory logout does not return a redirect URL.
    */
-  logoutRedirectPath?: string
+  logoutRedirectPath?: string;
 }
 
-const DEFAULT_APP_NAME = "Idea Workspace"
-const DEFAULT_HOME_PATH = "/ideas"
-const DEFAULT_ADMIN_PATH = "/admin/users"
-const DEFAULT_LOGOUT_REDIRECT = "/login"
+const DEFAULT_APP_NAME = "Idea Workspace";
+const DEFAULT_HOME_PATH = "/ideas";
+const DEFAULT_ADMIN_PATH = "/admin/users";
+const DEFAULT_LOGOUT_REDIRECT = "/login";
 
 export function TopBarLayout({
   children,
@@ -48,128 +40,49 @@ export function TopBarLayout({
   showAdminLink = true,
   logoutRedirectPath = DEFAULT_LOGOUT_REDIRECT,
 }: TopBarLayoutProps) {
-  const [open, setOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const navigate = useNavigate()
-  const { session, loading: sessionLoading } = useSession()
-
-  const identityLabel = useMemo(() => getIdentityLabel(session), [session])
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [])
-
-  const handleLogout = useCallback(async () => {
-    setOpen(false)
-    const baseUrl = getOryPublicApiBaseUrl()
-    try {
-      const response = await axios.get<{ logout_url?: string }>(
-        `${baseUrl}/self-service/logout/browser`,
-        { withCredentials: true },
-      )
-
-      if (response.data?.logout_url) {
-        window.location.href = response.data.logout_url
-        return
-      }
-    } catch (error) {
-      console.error("Logout failed", error)
-    }
-    window.location.href = logoutRedirectPath
-  }, [logoutRedirectPath])
-
-  const goToAdmin = useCallback(() => {
-    setOpen(false)
-    if (adminPath) {
-      navigate(adminPath)
-    }
-  }, [adminPath, navigate])
+  const navigate = useNavigate();
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-slate-950 text-white">
-      <header className="relative z-50 flex items-center justify-between border-b border-slate-800/70 bg-slate-900/80 px-6 py-3 backdrop-blur-md">
-        <h1
-          onClick={() => navigate(homePath)}
-          className="cursor-pointer text-lg font-semibold tracking-wide text-slate-200 transition hover:text-blue-400"
-        >
-          {appName}
-        </h1>
+    <div className="flex h-screen w-screen flex-col bg-slate-950 text-slate-50">
+      {/* Top bar */}
+      <header className="relative z-40 border-b border-slate-800/70 bg-slate-900/80 shadow-lg shadow-slate-950/40 backdrop-blur-xl">
+        {/* subtle gradient accent line */}
+        <div className="h-0.5 w-full bg-gradient-to-r from-sky-500/70 via-fuchsia-500/70 to-amber-400/70" />
 
-        <div className="relative" ref={dropdownRef}>
+        <div className="flex items-center justify-between px-6 py-3">
+          {/* App brand / home link */}
           <button
-            onClick={() => setOpen((o) => !o)}
-            className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-1.5 text-sm transition hover:bg-slate-700/50"
+            type="button"
+            onClick={() => navigate(homePath)}
+            className="group flex items-center gap-2 rounded-lg px-2 py-1 text-left text-slate-100 transition hover:bg-slate-800/60"
           >
-            <Settings className="h-4 w-4" />
-            <span className="text-slate-100">
-              {sessionLoading ? "Loading..." : identityLabel}
+            <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30 transition group-hover:bg-sky-500/25 group-hover:text-sky-300">
+              <LayoutGrid className="h-4 w-4" />
             </span>
-            <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
+            <span className="flex flex-col">
+              <span className="text-sm font-semibold tracking-wide">
+                {appName}
+              </span>
+              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+                workspace
+              </span>
+            </span>
           </button>
 
-          {open && (
-            <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-xl">
-              {showAdminLink && (
-                <button
-                  onClick={goToAdmin}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800"
-                >
-                  <Shield className="h-4 w-4 text-blue-400" />
-                  Admin Panel
-                </button>
-              )}
-
-              <div className="border-t border-slate-800" />
-
-              <button
-                onClick={handleLogout}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800"
-              >
-                <LogOut className="h-4 w-4 text-slate-400" />
-                Logout
-              </button>
-            </div>
-          )}
+          {/* Right side: identity menu */}
+          <IdentityMenu
+            adminPath={adminPath}
+            showAdminLink={showAdminLink}
+            logoutRedirectPath={logoutRedirectPath}
+          />
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-auto p-6">{children}</main>
+      {/* Content area */}
+      <main className="min-h-0 flex-1 overflow-auto bg-gradient-to-b from-slate-950 via-slate-950/95 to-slate-950 px-6 py-6">
+        {/* Optional max-width wrapper to make apps feel centered */}
+        <div className="mx-auto h-full w-full max-w-6xl">{children}</div>
+      </main>
     </div>
-  )
+  );
 }
-
-function getIdentityLabel(session: ReturnType<typeof useSession>["session"]): string {
-  const fallback = "Settings"
-  if (!session || typeof session !== "object") return fallback
-
-  const identity = (session as Record<string, unknown>).identity
-  if (!identity || typeof identity !== "object") return fallback
-
-  const traits = (identity as Record<string, unknown>).traits
-  if (!traits || typeof traits !== "object") return fallback
-
-  const traitsRecord = traits as Record<string, unknown>
-  const email = getString(traitsRecord["email"])
-  const username = getString(traitsRecord["username"])
-
-  const nameField = traitsRecord["name"]
-  let composedName: string | undefined
-  if (nameField && typeof nameField === "object") {
-    const nameRecord = nameField as Record<string, unknown>
-    const first = getString(nameRecord["first"])
-    const last = getString(nameRecord["last"])
-    composedName = [first, last].filter(Boolean).join(" ").trim() || undefined
-  }
-
-  return email ?? username ?? composedName ?? fallback
-}
-
-const getString = (value: unknown): string | undefined =>
-  typeof value === "string" && value.length > 0 ? value : undefined

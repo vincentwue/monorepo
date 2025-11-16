@@ -1,4 +1,6 @@
-﻿"""Ideas repository with hierarchical idea node operations."""
+﻿from __future__ import annotations
+
+"""Ideas repository with hierarchical idea node operations."""
 
 from .models import IdeaNode, IdeaCreate, IdeaUpdate
 from .repo import (
@@ -7,6 +9,7 @@ from .repo import (
     create_child_for_user,
     move_node_for_user,
     reorder_node_for_user,
+    delete_node_for_user,
 )
 
 __all__ = [
@@ -18,4 +21,5 @@ __all__ = [
     "create_child_for_user",
     "move_node_for_user",
     "reorder_node_for_user",
+    "delete_node_for_user",
 ]

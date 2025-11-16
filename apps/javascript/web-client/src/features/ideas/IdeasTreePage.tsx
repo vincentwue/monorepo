@@ -27,7 +27,7 @@ export function IdeasTreePage() {
     return new IdeasApiClient({ baseUrl: apiBaseUrl });
   }, [apiBaseUrl]);
 
-  const { nodes, loading, error, reorderNode, createChild, moveNode } = useIdeasTree(
+  const { nodes, loading, error, reorderNode, createChild, moveNode, deleteNode } = useIdeasTree(
     null,
     client,
   );
@@ -106,6 +106,21 @@ export function IdeasTreePage() {
     [moveNode],
   );
 
+  const handleDeleteNode = useCallback(
+    async (nodeId: string) => {
+      setIdeaMutationError(null);
+      try {
+        await deleteNode(nodeId);
+      } catch (err: unknown) {
+        console.error("[IdeasTreePage] failed to delete idea", err);
+        const message = err instanceof Error ? err.message : "Failed to delete idea";
+        setIdeaMutationError(message);
+        throw err;
+      }
+    },
+    [deleteNode],
+  );
+
   const handleCreateRootPrompt = useCallback(async () => {
     const title = window.prompt("Name your new idea", "New idea");
     if (title === null) return;
@@ -139,6 +154,7 @@ export function IdeasTreePage() {
       error={normalizedError}
       onReorderNode={handleReorderNode}
       onMoveNode={handleMoveNode}
+      onDeleteNode={handleDeleteNode}
       initialExpandedIds={ideaTreeSettings.expandedIds}
       initialSelectedId={ideaTreeSettings.selectedId}
       initialStateKey={settingsKey}

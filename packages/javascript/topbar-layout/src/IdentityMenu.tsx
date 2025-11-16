@@ -26,11 +26,11 @@ export function IdentityMenu({
 
   const label = useMemo(() => getIdentityLabel(session), [session]);
 
-  // close on outside click
+  // Close on outside click.
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = (event: MouseEvent) => {
       if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(e.target as Node)) {
+      if (!dropdownRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     };
@@ -38,10 +38,10 @@ export function IdentityMenu({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // close on Escape
+  // Close on Escape.
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
         setOpen(false);
       }
     };
@@ -79,24 +79,25 @@ export function IdentityMenu({
     <div className="relative" ref={dropdownRef}>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen((state) => !state)}
         className="flex items-center gap-2 rounded-full border border-slate-800/80 bg-slate-900/70 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-sm shadow-slate-950/40 transition hover:border-sky-500/60 hover:bg-slate-900"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-slate-300 ring-1 ring-slate-700">
           <User className="h-3.5 w-3.5" />
         </span>
         <span className="max-w-[140px] truncate text-[12px]">
-          {sessionLoading ? "Loading session…" : label}
+          {sessionLoading ? "Loading session..." : label}
         </span>
         <ChevronDown
-          className={`h-3 w-3 text-slate-500 transition-transform ${open ? "rotate-180" : ""
-            }`}
+          className={`h-3 w-3 text-slate-500 transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
         />
       </button>
 
       {open && (
         <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-950/98 shadow-xl shadow-black/60">
-          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-800/80 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950">
+          <div className="flex items-center gap-2 border-b border-slate-800/80 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-3 py-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/40">
               <Settings className="h-4 w-4" />
             </div>

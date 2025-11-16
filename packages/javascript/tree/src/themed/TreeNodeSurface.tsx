@@ -1,6 +1,6 @@
 import { NodeTreeNode } from "../internal/buildNodeTree";
 import { TreeActions } from "../types";
-import { getIndentStyle } from "./nodeStyle";
+import { getIndentStyle, NODE_MAX_WIDTH } from "./nodeStyle";
 
 interface TreeNodeSurfaceProps {
     node: NodeTreeNode;
@@ -53,6 +53,7 @@ export function TreeNodeSurface({
                         color: "#e5e7eb",
                         cursor: "pointer",
                         userSelect: "none",
+
                     }}
                 >
                     {isExpanded ? "−" : "+"}
@@ -72,6 +73,7 @@ export function TreeNodeSurface({
                     flexGrow: 1,
                     background: color,
                     borderRadius: 10,
+                    // width: "100px",
                     padding: "8px 16px",
                     color: "#f6f3ff",
                     fontFamily: '"Source Sans 3", "Inter", system-ui, sans-serif',
@@ -82,6 +84,10 @@ export function TreeNodeSurface({
                     border: isSelected
                         ? "2px solid rgba(120,200,255,0.9)"
                         : "2px solid transparent",
+                    maxWidth: NODE_MAX_WIDTH,     // <<< ADD THIS
+                    width: "100%",                // <<< Ensures consistent filling
+                    overflow: "hidden",           // <<< Prevent overflow
+                    textOverflow: "ellipsis",     // optional: truncates long text
                 }}
             >
                 <span>{node.title}</span>

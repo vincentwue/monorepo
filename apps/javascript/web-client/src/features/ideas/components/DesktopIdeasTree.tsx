@@ -13,6 +13,7 @@ export interface DesktopIdeasTreeProps {
   error: string | null;
   onReorderNode: (nodeId: string, direction: ReorderDirection) => Promise<void>;
   onMoveNode: (nodeId: string, newParentId: string | null) => Promise<void>;
+  onDeleteNode: (nodeId: string) => Promise<void>;
   initialExpandedIds: string[];
   initialSelectedId: string | null;
   initialStateKey: string;
@@ -29,6 +30,7 @@ export function DesktopIdeasTree({
   error,
   onReorderNode,
   onMoveNode,
+  onDeleteNode,
   initialExpandedIds,
   initialSelectedId,
   initialStateKey,
@@ -51,6 +53,7 @@ export function DesktopIdeasTree({
             <DesktopTreeContent
               onReorderNode={onReorderNode}
               onMoveNode={onMoveNode}
+              onDeleteNode={onDeleteNode}
               onCreateIdea={onCreateIdea}
               initialExpandedIds={initialExpandedIds}
               initialSelectedId={initialSelectedId}

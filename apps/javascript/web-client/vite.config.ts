@@ -25,6 +25,13 @@ export default defineConfig({
           "../../../packages/javascript/layout/src/index.ts"
         ),
       },
+      {
+        find: /^@monorepo\/topbar-layout$/,
+        replacement: path.resolve(
+          __dirname,
+          "../../../packages/javascript/topbar-layout/src/index.ts"
+        ),
+      },
     ],
   },
   server: {

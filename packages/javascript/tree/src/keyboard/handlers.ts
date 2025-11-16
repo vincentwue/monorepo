@@ -1,12 +1,14 @@
 import { startEditSession } from "../editEvents";
-import type { TreeActions, TreeState } from "../types";
 import {
   type ShortcutHandler,
   type ShortcutRuntime,
   type TreeKeyboardShortcutAction,
 } from "./types";
 
-const selectRelative = (runtime: ShortcutRuntime, direction: "prev" | "next") => {
+const selectRelative = (
+  runtime: ShortcutRuntime,
+  direction: "prev" | "next"
+) => {
   const ids = runtime.visibleNodeIds;
   if (!ids.length) return;
   const selected = runtime.state.selectedId;
@@ -28,7 +30,10 @@ const toggleExpand = (runtime: ShortcutRuntime, id: string) => {
   runtime.actions.toggleExpanded(id);
 };
 
-export const shortcutHandlers: Record<TreeKeyboardShortcutAction, ShortcutHandler> = {
+export const shortcutHandlers: Record<
+  TreeKeyboardShortcutAction,
+  ShortcutHandler
+> = {
   "tree.selectRelative": ({ runtime, shortcut }) => {
     const direction = shortcut.args?.direction === "prev" ? "prev" : "next";
     selectRelative(runtime, direction);
@@ -99,24 +104,31 @@ export const shortcutHandlers: Record<TreeKeyboardShortcutAction, ShortcutHandle
 
     if (inlineState) {
       window.dispatchEvent(
-        new CustomEvent("tree-inline-edit-focus", { detail: inlineState.tempId }),
+        new CustomEvent("tree-inline-edit-focus", {
+          detail: inlineState.tempId,
+        })
       );
       return true;
     }
 
     startEditSession(selectedId);
     window.dispatchEvent(
-      new CustomEvent("tree-inline-edit-focus", { detail: selectedId }),
+      new CustomEvent("tree-inline-edit-focus", { detail: selectedId })
     );
     return true;
   },
   "tree.inlineCreate": ({ runtime, shortcut }) => {
-    const intent = shortcut.args?.intent as "start" | "confirm" | "cancel" | undefined;
+    const intent = shortcut.args?.intent as
+      | "start"
+      | "confirm"
+      | "cancel"
+      | undefined;
     if (!intent) return false;
 
     if (intent === "start") {
       const selectedId = runtime.state.selectedId;
       if (!selectedId || runtime.state.inlineCreate) return false;
+
       const sourceNode = runtime.nodeMap.get(selectedId);
       const tempId =
         shortcut.args?.tempId || `temp-${Math.random().toString(36).slice(2)}`;
@@ -127,13 +139,15 @@ export const shortcutHandlers: Record<TreeKeyboardShortcutAction, ShortcutHandle
       runtime.actions.beginInlineCreate({
         tempId,
         sourceId: selectedId,
-        afterId: shortcut.args?.afterId,
-        parentId: shortcut.args?.parentId,
+        afterId, // ← important
+        parentId, // ← important
       });
+
       runtime.actions.addInlineCreatePlaceholder({
         afterId,
         node: { _id: tempId, title: placeholderTitle, parent_id: parentId },
       });
+
       return true;
     }
 
@@ -143,6 +157,8 @@ export const shortcutHandlers: Record<TreeKeyboardShortcutAction, ShortcutHandle
     if (intent === "confirm") {
       runtime.actions.confirmInlineCreate({
         tempId: inlineState.tempId,
+        // ⬅ right now you only pass tempId (+ maybe nodeId),
+        //    but NOT afterId / parentId
         nodeId: shortcut.args?.nodeId,
       });
       return true;
@@ -153,6 +169,7 @@ export const shortcutHandlers: Record<TreeKeyboardShortcutAction, ShortcutHandle
     }
     return false;
   },
+
   "tree.delete": ({ runtime }) => {
     const selectedId = runtime.state.selectedId;
     if (!selectedId) return false;

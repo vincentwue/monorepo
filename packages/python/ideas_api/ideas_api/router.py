@@ -1,6 +1,8 @@
-﻿"""FastAPI router exposing Ideas operations."""
+﻿from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, Query
+"""FastAPI router exposing Ideas operations."""
+
+from fastapi import APIRouter, Body, Depends, Query, Response
 
 from ideas_repo import (
     IdeaNode,
@@ -9,6 +11,7 @@ from ideas_repo import (
     list_tree_for_user,
     move_node_for_user,
     reorder_node_for_user,
+    delete_node_for_user,
 )
 
 from .kratos_client import get_identity
@@ -104,3 +107,20 @@ async def reorder_node(
         direction=direction,
         target_rank=target_rank,
     )
+
+
+@router.delete("/nodes/{node_id}", status_code=204)
+async def delete_node(
+    node_id: str,
+    identity: dict = Depends(get_identity),
+) -> Response:
+    """Delete an idea node and its subtree."""
+
+    user_id: str = identity["id"]
+    workspace_id = extract_workspace_id(identity)
+    await delete_node_for_user(
+        workspace_id=workspace_id,
+        user_id=user_id,
+        node_id=node_id,
+    )
+    return Response(status_code=204)

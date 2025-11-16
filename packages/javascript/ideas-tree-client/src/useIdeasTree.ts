@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
 import { isAxiosError } from "axios";
+import { useCallback, useEffect, useState } from "react";
 
 import type { IdeasApiClient } from "./apiClient.js";
 import type { IdeaNodeView, ReorderDirection } from "./types.js";
@@ -9,9 +9,14 @@ export interface UseIdeasTreeResult {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  createChild: (parentId: string | null, title: string, note?: string) => Promise<IdeaNodeView>;
+  createChild: (
+    parentId: string | null,
+    title: string,
+    note?: string
+  ) => Promise<IdeaNodeView>;
   moveNode: (nodeId: string, newParentId: string | null) => Promise<void>;
   reorderNode: (nodeId: string, direction: ReorderDirection) => Promise<void>;
+  deleteNode: (nodeId: string) => Promise<void>;
 }
 
 /**
@@ -24,7 +29,10 @@ export interface UseIdeasTreeResult {
  * const { nodes, createChild } = useIdeasTree(activeParentId, client);
  * ```
  */
-export function useIdeasTree(parentId: string | null, client: IdeasApiClient): UseIdeasTreeResult {
+export function useIdeasTree(
+  parentId: string | null,
+  client: IdeasApiClient
+): UseIdeasTreeResult {
   const [nodes, setNodes] = useState<IdeaNodeView[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +107,7 @@ export function useIdeasTree(parentId: string | null, client: IdeasApiClient): U
         throw err;
       }
     },
-    [client, refresh],
+    [client, refresh]
   );
 
   const moveNode = useCallback(
@@ -110,9 +118,10 @@ export function useIdeasTree(parentId: string | null, client: IdeasApiClient): U
       } catch (err: any) {
         console.error("Failed to move idea node", err);
         setError(err?.message ?? "Failed to move idea");
+        throw err;
       }
     },
-    [client, refresh],
+    [client, refresh]
   );
 
   const reorderNode = useCallback(
@@ -123,9 +132,24 @@ export function useIdeasTree(parentId: string | null, client: IdeasApiClient): U
       } catch (err: any) {
         console.error("Failed to reorder idea node", err);
         setError(err?.message ?? "Failed to reorder idea");
+        throw err;
       }
     },
-    [client, refresh],
+    [client, refresh]
+  );
+
+  const deleteNode = useCallback(
+    async (nodeId: string) => {
+      try {
+        await client.deleteNode(nodeId);
+        await refresh();
+      } catch (err: any) {
+        console.error("Failed to delete idea node", err);
+        setError(err?.message ?? "Failed to delete idea");
+        throw err;
+      }
+    },
+    [client, refresh]
   );
 
   return {
@@ -136,5 +160,6 @@ export function useIdeasTree(parentId: string | null, client: IdeasApiClient): U
     createChild,
     moveNode,
     reorderNode,
+    deleteNode,
   };
 }

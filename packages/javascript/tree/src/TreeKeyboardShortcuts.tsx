@@ -1,13 +1,13 @@
 // src/TreeKeyboardShortcuts.tsx
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTreeActions, useTreeState } from "./hooks";
 import { DEFAULT_TREE_SHORTCUTS } from "./keyboard/defaultShortcuts";
 import { shortcutHandlers } from "./keyboard/handlers";
 import {
   type NormalizedShortcut,
   type TreeKeyboardShortcut,
-  type TreeKeyboardShortcutAction,
-  type TreeShortcutCondition,
+  type TreeKeyboardShortcutAction
 } from "./keyboard/types";
 import {
   computeVisibleNodeIds,
@@ -15,7 +15,6 @@ import {
   doesEventMatchShortcut,
   normalizeShortcut,
 } from "./keyboard/utils";
-import { useTreeActions, useTreeState } from "./hooks";
 
 interface TreeKeyboardShortcutsProps {
   treeKey: string;
@@ -116,8 +115,8 @@ export const TreeKeyboardShortcuts = ({
       if (!runtime) return;
 
       const allowedWhileEditing = new Set<TreeKeyboardShortcutAction>([
+        // Only inline-create lifecycle should work inside inputs
         "tree.inlineCreate",
-        "tree.editTitle",
       ]);
 
       for (const shortcut of shortcutsList) {
@@ -182,9 +181,10 @@ export const TreeKeyboardShortcuts = ({
   );
 };
 
+export { DEFAULT_TREE_SHORTCUTS } from "./keyboard/defaultShortcuts";
 export type {
   TreeKeyboardShortcut,
   TreeKeyboardShortcutAction,
-  TreeShortcutCondition,
+  TreeShortcutCondition
 } from "./keyboard/types";
-export { DEFAULT_TREE_SHORTCUTS } from "./keyboard/defaultShortcuts";
+

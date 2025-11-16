@@ -18,6 +18,7 @@
     "@monorepo/tree": "workspace:*",
     "@monorepo/mobile-tree-ui": "workspace:*",
     "@monorepo/layout": "workspace:*",
+    "@monorepo/topbar-layout": "workspace:*",
     "axios": "^1.7.9",
     "lucide-react": "^0.469.0",
     "react": "^18.0.0",

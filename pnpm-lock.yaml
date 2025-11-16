@@ -100,6 +100,9 @@ importers:
       '@monorepo/mobile-tree-ui':
         specifier: workspace:*
         version: link:../../../packages/javascript/mobile-tree-ui
+      '@monorepo/topbar-layout':
+        specifier: workspace:*
+        version: link:../../../packages/javascript/topbar-layout
       '@monorepo/tree':
         specifier: workspace:*
         version: link:../../../packages/javascript/tree

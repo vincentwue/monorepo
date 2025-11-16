@@ -1,5 +1,9 @@
 import axios, { type AxiosInstance } from "axios";
-import type { IdeaNodeView, ReorderDirection, IdeaTreeUiState } from "./types.js";
+import type {
+  IdeaNodeView,
+  IdeaTreeUiState,
+  ReorderDirection,
+} from "./types.js";
 
 export interface IdeasApiClientOptions {
   /**
@@ -39,9 +43,13 @@ const normalizeIdeaNode = (node: IdeaNodeApiResponse): IdeaNodeView => ({
   rank: typeof node.rank === "number" ? node.rank : 0,
 });
 
-const normalizeIdeaTreeState = (payload: IdeaTreeStateResponse): IdeaTreeUiState => {
+const normalizeIdeaTreeState = (
+  payload: IdeaTreeStateResponse
+): IdeaTreeUiState => {
   const expandedIds = Array.isArray(payload.expanded_ids)
-    ? payload.expanded_ids.filter((value): value is string => typeof value === "string")
+    ? payload.expanded_ids.filter(
+        (value): value is string => typeof value === "string"
+      )
     : [];
 
   return {
@@ -50,9 +58,14 @@ const normalizeIdeaTreeState = (payload: IdeaTreeStateResponse): IdeaTreeUiState
   };
 };
 
-const serializeIdeaTreeState = (state: IdeaTreeUiState): IdeaTreeStateResponse => {
+const serializeIdeaTreeState = (
+  state: IdeaTreeUiState
+): IdeaTreeStateResponse => {
   const expandedIds = state.expandedIds.filter(
-    (value, index, array) => typeof value === "string" && value.length > 0 && array.indexOf(value) === index,
+    (value, index, array) =>
+      typeof value === "string" &&
+      value.length > 0 &&
+      array.indexOf(value) === index
   );
 
   return {
@@ -79,7 +92,9 @@ export class IdeasApiClient {
       params.parent_id = parentId;
     }
 
-    const res = await this.http.get<IdeaNodeApiResponse[]>("/ideas/children", { params });
+    const res = await this.http.get<IdeaNodeApiResponse[]>("/ideas/children", {
+      params,
+    });
     return res.data.map(normalizeIdeaNode);
   }
 
@@ -91,7 +106,7 @@ export class IdeasApiClient {
   async createChild(
     parentId: string | null,
     title: string,
-    note?: string,
+    note?: string
   ): Promise<IdeaNodeView> {
     const params: Record<string, string> = {};
     if (parentId != null) {
@@ -103,13 +118,17 @@ export class IdeasApiClient {
       body.note = note;
     }
 
-    const res = await this.http.post<IdeaNodeApiResponse>("/ideas/children", body, { params });
+    const res = await this.http.post<IdeaNodeApiResponse>(
+      "/ideas/children",
+      body,
+      { params }
+    );
     return normalizeIdeaNode(res.data);
   }
 
   async moveNode(
     nodeId: string,
-    newParentId: string | null,
+    newParentId: string | null
   ): Promise<IdeaNodeView> {
     const body: { new_parent_id: string | null } = {
       new_parent_id: newParentId,
@@ -117,7 +136,7 @@ export class IdeasApiClient {
 
     const res = await this.http.post<IdeaNodeApiResponse>(
       `/ideas/nodes/${encodeURIComponent(nodeId)}/move`,
-      body,
+      body
     );
     return normalizeIdeaNode(res.data);
   }
@@ -125,7 +144,7 @@ export class IdeasApiClient {
   async reorderNode(
     nodeId: string,
     direction: ReorderDirection,
-    targetRank?: number,
+    targetRank?: number
   ): Promise<IdeaNodeView> {
     const body: { direction: ReorderDirection; target_rank?: number } = {
       direction,
@@ -137,19 +156,28 @@ export class IdeasApiClient {
 
     const res = await this.http.post<IdeaNodeApiResponse>(
       `/ideas/nodes/${encodeURIComponent(nodeId)}/reorder`,
-      body,
+      body
     );
     return normalizeIdeaNode(res.data);
   }
 
+  async deleteNode(nodeId: string): Promise<void> {
+    await this.http.delete(`/ideas/nodes/${encodeURIComponent(nodeId)}`);
+  }
+
   async getIdeaTreeState(): Promise<IdeaTreeUiState> {
-    const res = await this.http.get<IdeaTreeStateResponse>("/settings/idea-tree");
+    const res = await this.http.get<IdeaTreeStateResponse>(
+      "/settings/idea-tree"
+    );
     return normalizeIdeaTreeState(res.data);
   }
 
   async updateIdeaTreeState(state: IdeaTreeUiState): Promise<IdeaTreeUiState> {
     const body = serializeIdeaTreeState(state);
-    const res = await this.http.put<IdeaTreeStateResponse>("/settings/idea-tree", body);
+    const res = await this.http.put<IdeaTreeStateResponse>(
+      "/settings/idea-tree",
+      body
+    );
     return normalizeIdeaTreeState(res.data);
   }
 }

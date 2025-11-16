@@ -17,7 +17,11 @@ const forms = tryRequire("@tailwindcss/forms");
 const typography = tryRequire("@tailwindcss/typography");
 
 export default {
-  content: ["./index.html", "./src/**/*.{ts,tsx,css}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{ts,tsx,css}",
+    "../../../packages/javascript/topbar-layout/src/**/*.{ts,tsx}",
+  ],
   darkMode: "class",
   theme: {
     extend: {

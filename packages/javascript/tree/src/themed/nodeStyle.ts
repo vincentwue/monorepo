@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
 export const INDENT_WIDTH = 24;
+// nodeStyle.ts
+export const NODE_MAX_WIDTH = 200; // or 480 / 520 / 680 etc.
 
 // Base parameters for the depth color generator
 const BASE_HUE = 270; // starting hue (purple-ish)
