@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from settings_repo import IdeaTreeUiState
 from settings_repo.service import get_idea_tree_state, update_idea_tree_state
 
-from .kratos_client import get_current_identity
+from .kratos_client import get_identity
 from .workspace import extract_workspace_id
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -18,7 +18,7 @@ class IdeaTreeSettingsPayload(BaseModel):
 
 
 @router.get("/idea-tree", response_model=IdeaTreeUiState)
-async def read_idea_tree_settings(identity: dict = Depends(get_current_identity)):
+async def read_idea_tree_settings(identity: dict = Depends(get_identity)):
     user_id: str = identity["id"]
     workspace_id = extract_workspace_id(identity)
     return await get_idea_tree_state(workspace_id=workspace_id, user_id=user_id)
@@ -27,7 +27,7 @@ async def read_idea_tree_settings(identity: dict = Depends(get_current_identity)
 @router.put("/idea-tree", response_model=IdeaTreeUiState)
 async def update_idea_tree_settings(
     payload: IdeaTreeSettingsPayload,
-    identity: dict = Depends(get_current_identity),
+    identity: dict = Depends(get_identity),
 ):
     user_id: str = identity["id"]
     workspace_id = extract_workspace_id(identity)

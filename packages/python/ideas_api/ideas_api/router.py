@@ -11,7 +11,7 @@ from ideas_repo import (
     reorder_node_for_user,
 )
 
-from .kratos_client import get_current_identity
+from .kratos_client import get_identity
 from .workspace import extract_workspace_id
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/ideas", tags=["ideas"])
 @router.get("/children", response_model=list[IdeaNode])
 async def get_children(
     parent_id: str | None = Query(default=None),
-    identity: dict = Depends(get_current_identity),
+    identity: dict = Depends(get_identity),
 ):
     """Return child nodes for the parent visible to the requesting identity."""
 
@@ -34,7 +34,7 @@ async def get_children(
 
 
 @router.get("/tree", response_model=list[IdeaNode])
-async def get_tree(identity: dict = Depends(get_current_identity)):
+async def get_tree(identity: dict = Depends(get_identity)):
     """Return the full idea tree visible to the requesting identity."""
 
     user_id: str = identity["id"]
@@ -49,7 +49,7 @@ async def get_tree(identity: dict = Depends(get_current_identity)):
 async def create_child(
     parent_id: str | None = Query(default=None),
     payload: dict = Body(...),
-    identity: dict = Depends(get_current_identity),
+    identity: dict = Depends(get_identity),
 ):
     """Create a new child node below the provided parent."""
 
@@ -70,7 +70,7 @@ async def create_child(
 async def move_node(
     node_id: str,
     payload: dict = Body(...),
-    identity: dict = Depends(get_current_identity),
+    identity: dict = Depends(get_identity),
 ):
     """Move an idea node to a new parent."""
 
@@ -89,7 +89,7 @@ async def move_node(
 async def reorder_node(
     node_id: str,
     payload: dict = Body(...),
-    identity: dict = Depends(get_current_identity),
+    identity: dict = Depends(get_identity),
 ):
     """Reorder an idea node among its siblings."""
 

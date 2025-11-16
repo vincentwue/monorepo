@@ -1,13 +1,34 @@
 """FastAPI application composing the ideas API router."""
 
+from __future__ import annotations
+
+import os
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
+from dotenv import find_dotenv, load_dotenv
 
-from ideas_api import router as ideas_router, settings_router as idea_settings_router
-import loguru
-from permissions import permissions_router
+from ._paths import ensure_local_packages_importable
+
+ensure_local_packages_importable()
+load_dotenv(find_dotenv(usecwd=True))
+
+
+def _configure_logging() -> None:
+    level = os.getenv("LOG_LEVEL") or os.getenv("LOGURU_LEVEL") or "INFO"
+    logger.remove()
+    logger.add(sys.stderr, level=level.upper())
+    logger.info("Logger configured at {level} level", level=level.upper())
+
 
 from .config import settings
+from ideas_api import router as ideas_router, settings_router as idea_settings_router
+from permissions import permissions_router
+
+
+_configure_logging()
 
 app = FastAPI(title=settings.api_title, version=settings.api_version)
 
@@ -20,8 +41,7 @@ if settings.cors_allow_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
-loguru.logger.info("CORS middleware added"+str(settings.cors_allow_origins))
+logger.info("CORS middleware added {origins}", origins=settings.cors_allow_origins)
 
 
 @app.get("/health", tags=["health"])

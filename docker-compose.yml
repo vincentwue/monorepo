@@ -96,6 +96,7 @@ services:
       - CORE_CORS_ALLOW_ORIGINS=${CORE_CORS_ALLOW_ORIGINS}
       - APP_BASE_URL=${APP_BASE_URL}
       - AUTH_UI_BASE_URL=${AUTH_UI_BASE_URL}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     ports:
       - "8000:8000"
 

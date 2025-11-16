@@ -2,6 +2,7 @@ import { RequireAuth, useSession } from "@monorepo/auth";
 import { useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
+import { SplitLayout } from "@monorepo/layout";
 import { FocusOverlay } from "./components/FocusOverlay";
 import { IdeasTreePage } from "./features/ideas/IdeasTreePage";
 import { TopBarLayout } from "./layout/TopBarLayout";
@@ -39,7 +40,24 @@ export default function App() {
                 path="/*"
                 element={
                   <RequireAuth skipRedirect redirectTo={loginUrl}>
-                    <IdeasTreePage />
+                    <SplitLayout
+                      direction="horizontal"
+                      sizes={[40, 60]}
+                      minSize={[500, 300]}
+                      gutterSize={8}
+                      className="flex h-full"
+                    >
+                      {/* Left panel (tree, navigator) */}
+                      <div className="flex h-full min-w-[500px] overflow-hidden border-r border-slate-800">
+                        {/* Your Tree / Sidebar */}
+                        <IdeasTreePage />
+                      </div>
+
+                      {/* Right panel (details) */}
+                      <div className="h-full">
+                        {/* Active idea / editor / etc. */}
+                      </div>
+                    </SplitLayout>
                   </RequireAuth>
                 }
               />

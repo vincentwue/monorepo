@@ -18,6 +18,13 @@ export default defineConfig({
           "../../../packages/javascript/ideas-tree-client/src/index.ts"
         ),
       },
+      {
+        find: /^@monorepo\/layout$/,
+        replacement: path.resolve(
+          __dirname,
+          "../../../packages/javascript/layout/src/index.ts"
+        ),
+      },
     ],
   },
   server: {

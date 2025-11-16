@@ -13,4 +13,5 @@ dependencies = [
     "pydantic>=2.0",
     "ideas_repo",
     "settings_repo",
+    "loguru>=0.7.3",
 ]

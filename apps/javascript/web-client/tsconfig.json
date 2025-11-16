@@ -7,13 +7,20 @@
     "target": "ESNext",
     "strict": true,
     "baseUrl": "src",
-    "rootDir": "src",
+    // "rootDir": "src",
     "outDir": "dist",
     "tsBuildInfoFile": "node_modules/.cache/tsconfig.tsbuildinfo",
     "paths": {
-      "@monorepo/*": ["../../../../packages/javascript/*/src"],
-      "@ideas/tree-client": ["../../../../packages/javascript/ideas-tree-client/src"]
+      "@monorepo/*": [
+        "../../../../packages/javascript/*/src"
+      ],
+      "@ideas/tree-client": [
+        "../../../../packages/javascript/ideas-tree-client/src"
+      ]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
 }

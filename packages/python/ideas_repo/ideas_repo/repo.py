@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import List, Optional
 from uuid import uuid4
 
@@ -16,6 +17,12 @@ COLLECTION_NAME = "ideas"
 ROOT_ID = "ROOT"
 _KIND = "node"
 ROOT_RESOURCE_KEY = "root"
+
+_ROOT_PERMISSION_CACHE: set[str] = set()
+_ROOT_PERMISSION_LOCK = asyncio.Lock()
+
+_ROOT_PERMISSION_CACHE: set[str] = set()
+_ROOT_PERMISSION_LOCK = asyncio.Lock()
 
 
 def _workspace_root_object_id(workspace_id: str) -> str:
@@ -33,15 +40,25 @@ async def _ensure_root_permissions(user_id: str, workspace_id: str) -> None:
     on their personal root node so first-time access succeeds.
     """
 
-    subject = user_subject(user_id)
-    root_object = _workspace_root_object_id(workspace_id)
-    for relation in ("viewer", "editor"):
-        await keto_write(
-            namespace=IDEAS_NAMESPACE,
-            object=root_object,
-            relation=relation,
-            subject=subject,
-        )
+    cache_key = f"{user_id}:{workspace_id}"
+    if cache_key in _ROOT_PERMISSION_CACHE:
+        return
+
+    async with _ROOT_PERMISSION_LOCK:
+        if cache_key in _ROOT_PERMISSION_CACHE:
+            return
+
+        subject = user_subject(user_id)
+        root_object = _workspace_root_object_id(workspace_id)
+        for relation in ("viewer", "editor"):
+            await keto_write(
+                namespace=IDEAS_NAMESPACE,
+                object=root_object,
+                relation=relation,
+                subject=subject,
+            )
+
+        _ROOT_PERMISSION_CACHE.add(cache_key)
 
 
 def _resource_id(workspace_id: str, node_id: Optional[str]) -> str:
@@ -208,7 +225,7 @@ async def move_node_for_user(
     await require_user_permission(
         namespace=IDEAS_NAMESPACE,
         kind=_KIND,
-        resource_id=_resource_id(new_parent_id),
+        resource_id=_resource_id(workspace_id, new_parent_id),
         relation="editor",
         user_id=user_id,
     )

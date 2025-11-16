@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { subscribeEditSession } from "../editEvents";
 import { useTreeActions, useTreeState } from "../hooks";
-import type { TreeActions, TreeInlineCreateState } from "../types";
 import { ThemedTreeNode } from "./TreeNode";
 
 const CONTAINER_STYLE: CSSProperties = {
   minHeight: "100vh",
-  background: "#050b1b",
+  // background: "#050b1b",
   padding: "32px",
 };
 
