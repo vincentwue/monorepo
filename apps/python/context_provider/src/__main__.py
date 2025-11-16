@@ -18,13 +18,30 @@ if sys.platform.startswith("win"):
 
 
 
-from ui import FolderTreeApp
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QCoreApplication
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+from ui import ContextProviderWindow
+
 
 def main():
-    print("[LOG] Starting FolderTreeApp…")
-    app = FolderTreeApp()
-    app.mainloop()
+    if load_dotenv is not None:
+        load_dotenv()
+    print("[LOG] Launching ContextProviderWindow")
+    QCoreApplication.setOrganizationName("vincent")
+    QCoreApplication.setOrganizationDomain("context-tool")
+    QCoreApplication.setApplicationName("Context Provider")
+    app = QApplication(sys.argv)
+    window = ContextProviderWindow()
+    window.show()
+    exit_code = app.exec()
     print("[LOG] App closed.")
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

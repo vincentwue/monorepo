@@ -23,6 +23,7 @@
     "*.png",
     "*.jpg",
     "*.jpeg",
+    "*.exe",
     "*.svg",
     "*.webp",
     "playwright-report",
@@ -54,20 +55,23 @@
   "last_folder": "D:/git_repos/monorepo",
   "pane_sizes": {
     "main_split": [
-      189,
-      1450
+      285,
+      1688
     ],
     "tree_split": [
-      383,
-      735
+      375
     ]
   },
   "table_columns": {
     "path_table": {
-      "select": 45,
-      "line": 37,
-      "path": 210,
-      "lines": 60
+      "filter": 128,
+      "output": 133,
+      "line": 101,
+      "path": 501,
+      "lines": 79
     }
-  }
+  },
+  "selected_paths": [
+    "D:/git_repos/monorepo\\apps\\auth-ui\\src\\pages\\RecoveryPage.tsx"
+  ]
 }

@@ -1,57 +1,84 @@
+from __future__ import annotations
+
 import os
-from tkinter import ttk
+from dataclasses import dataclass
+from typing import Iterable, Iterator, List
+
 from utils import log
 
 
-def build_tree(app, folder, ignore_patterns):
-    """Recursively build the tree UI."""
-    for w in app.inner_frame.winfo_children():
-        w.destroy()
-    app.row_widgets.clear()
-    app.all_paths.clear()
-    app.file_cache.clear()
-
-    def add_node(base_path, depth=0):
-        try:
-            entries = sorted(os.listdir(base_path))
-        except (PermissionError, FileNotFoundError) as e:
-            log(f"Skipping {base_path}: {e}")
-            return
-
-        for name in entries:
-            full_path = os.path.join(base_path, name)
-            if any(ign in full_path for ign in ignore_patterns):
-                log(f"Ignored: {full_path}")
-                continue
-
-            is_dir = os.path.isdir(full_path)
-            row = ttk.Frame(app.inner_frame)
-            row.grid(sticky="w", padx=depth * 20, pady=1)
-            row.path = full_path
-            app.all_paths.append(full_path)
-
-            ttk.Label(row, text=name).pack(side="left")
-
-            app.row_widgets.append((full_path, row, depth))
-
-            if is_dir:
-                add_node(full_path, depth + 1)
-
-    log(f"Rendering tree for {folder}")
-    add_node(folder)
-    log(f"Tree rendering complete. {len(app.all_paths)} total paths.")
+ASCII_LAST = "`-- "
+ASCII_MID = "|-- "
+ASCII_PIPE = "|   "
+ASCII_GAP = "    "
 
 
-def build_ascii_tree_text(folder, ignore_patterns):
-    """Return a box-drawn ASCII tree string for the given folder."""
-    BOX_LAST = "└── "
-    BOX_MID = "├── "
-    BOX_PIPE = "│   "
-    BOX_GAP = "    "
+@dataclass(slots=True)
+class TreeEntry:
+    """Lightweight representation of a filesystem node."""
 
-    def build_tree_lines(path: str, prefix: str = "", lines=None):
-        if lines is None:
-            lines = []
+    path: str
+    name: str
+    parent: str | None
+    depth: int
+    is_dir: bool
+
+
+def gather_tree_entries(folder: str, ignore_patterns: Iterable[str]) -> List[TreeEntry]:
+    """
+    Walk the given folder and return TreeEntry rows honoring ignore patterns.
+    """
+    root = os.path.abspath(folder)
+    entries: list[TreeEntry] = []
+    for entry in _walk_tree(root, None, 0, list(ignore_patterns)):
+        entries.append(entry)
+    log(f"[tree] gathered {len(entries)} entries under {root}")
+    return entries
+
+
+def _walk_tree(
+    current: str,
+    parent: str | None,
+    depth: int,
+    ignore_patterns: list[str],
+) -> Iterator[TreeEntry]:
+    try:
+        with os.scandir(current) as it:
+            items = sorted(
+                it,
+                key=lambda e: (not e.is_dir(follow_symlinks=False), e.name.lower()),
+            )
+    except (PermissionError, FileNotFoundError) as exc:
+        log(f"[tree] skipping {current}: {exc}")
+        return
+
+    for entry in items:
+        full_path = entry.path
+        if _should_ignore(full_path, ignore_patterns):
+            log(f"[tree] ignored {full_path}")
+            continue
+        is_dir = entry.is_dir(follow_symlinks=False)
+        yield TreeEntry(
+            path=full_path,
+            name=entry.name,
+            parent=parent or os.path.abspath(current),
+            depth=depth,
+            is_dir=is_dir,
+        )
+        if is_dir:
+            yield from _walk_tree(full_path, full_path, depth + 1, ignore_patterns)
+
+
+def _should_ignore(path: str, patterns: Iterable[str]) -> bool:
+    lower = path.lower()
+    return any(pattern.lower() in lower for pattern in patterns)
+
+
+def build_ascii_tree_text(folder: str, ignore_patterns: Iterable[str]) -> str:
+    """Return a text tree for the entire folder."""
+
+    def build_lines(path: str, prefix: str = "") -> list[str]:
+        lines: list[str] = []
         try:
             with os.scandir(path) as it:
                 entries = sorted(
@@ -63,54 +90,53 @@ def build_ascii_tree_text(folder, ignore_patterns):
             return lines
 
         for idx, entry in enumerate(entries):
-            is_last = idx == len(entries) - 1
-            branch = BOX_LAST if is_last else BOX_MID
-            if any(ign in entry.path for ign in ignore_patterns):
+            full_path = entry.path
+            if _should_ignore(full_path, ignore_patterns):
                 continue
+            is_last = idx == len(entries) - 1
+            branch = ASCII_LAST if is_last else ASCII_MID
             lines.append(f"{prefix}{branch}{entry.name}")
             if entry.is_dir(follow_symlinks=False) and not entry.is_symlink():
-                next_prefix = prefix + (BOX_GAP if is_last else BOX_PIPE)
-                build_tree_lines(entry.path, next_prefix, lines)
+                next_prefix = prefix + (ASCII_GAP if is_last else ASCII_PIPE)
+                lines.extend(build_lines(full_path, next_prefix))
         return lines
 
-    lines = [folder]
-    lines.extend(build_tree_lines(folder))
-    return "\n".join(lines)
+    folder = os.path.abspath(folder)
+    result = [folder]
+    result.extend(build_lines(folder))
+    return "\n".join(result)
 
 
 def build_ascii_from_paths(root_folder: str, paths: list[str]) -> str:
     """
-    Build an ASCII tree representation from a list of visible absolute or relative paths.
+    Build an ASCII tree representation from a list of absolute or relative paths.
     """
-    BOX_LAST = "└── "
-    BOX_MID = "├── "
-    BOX_PIPE = "│   "
-    BOX_GAP = "    "
-
-    tree = {}
+    root = os.path.abspath(root_folder)
+    tree: dict[str, dict] = {}
     for path in sorted(paths):
-        if os.path.isabs(path):
-            rel = os.path.relpath(path, root_folder)
-        else:
+        absolute = path if os.path.isabs(path) else os.path.join(root, path)
+        try:
+            rel = os.path.relpath(absolute, root)
+        except ValueError:
             rel = path
-        if rel == ".":
+        if rel in (".", ""):
             continue
         parts = rel.split(os.sep)
         node = tree
         for part in parts:
             node = node.setdefault(part, {})
 
-    def walk(subtree, prefix=""):
-        lines = []
+    def walk(subtree: dict[str, dict], prefix: str = "") -> list[str]:
+        lines: list[str] = []
         keys = sorted(subtree.keys())
         for idx, key in enumerate(keys):
             is_last = idx == len(keys) - 1
-            branch = BOX_LAST if is_last else BOX_MID
+            branch = ASCII_LAST if is_last else ASCII_MID
             lines.append(f"{prefix}{branch}{key}")
-            next_prefix = prefix + (BOX_GAP if is_last else BOX_PIPE)
+            next_prefix = prefix + (ASCII_GAP if is_last else ASCII_PIPE)
             lines.extend(walk(subtree[key], next_prefix))
         return lines
 
-    lines = [root_folder]
-    lines.extend(walk(tree))
-    return "\n".join(lines)
+    result = [root]
+    result.extend(walk(tree))
+    return "\n".join(result)
