@@ -25,6 +25,11 @@ export interface TopBarLayoutProps {
    * Path to fall back to if Ory logout does not return a redirect URL.
    */
   logoutRedirectPath?: string;
+  /**
+   * Where to send the user when they click "Login" and there is no active session.
+   * Defaults to VITE_AUTH_LOGIN_REDIRECT, falling back to "/login".
+   */
+  loginRedirectPath?: string;
 }
 
 const DEFAULT_APP_NAME = "Idea Workspace";
@@ -39,6 +44,7 @@ export function TopBarLayout({
   adminPath = DEFAULT_ADMIN_PATH,
   showAdminLink = true,
   logoutRedirectPath = DEFAULT_LOGOUT_REDIRECT,
+  loginRedirectPath,
 }: TopBarLayoutProps) {
   const navigate = useNavigate();
 
@@ -69,11 +75,12 @@ export function TopBarLayout({
             </span>
           </button>
 
-          {/* Right side: identity menu */}
+          {/* Right side: identity menu OR login button (handled inside IdentityMenu) */}
           <IdentityMenu
             adminPath={adminPath}
             showAdminLink={showAdminLink}
             logoutRedirectPath={logoutRedirectPath}
+            loginRedirectPath={loginRedirectPath}
           />
         </div>
       </header>

@@ -1,0 +1,17 @@
+{
+  "name": "@monorepo/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": "./src/styles.css",
+    "./styles.css": "./src/styles.css",
+    "./tailwind-preset": {
+      "types": "./src/tailwind-preset.d.ts",
+      "default": "./src/tailwind-preset.js"
+    }
+  }
+}

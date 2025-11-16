@@ -9,15 +9,46 @@ export interface IdentityMenuProps {
   adminPath?: string;
   showAdminLink?: boolean;
   logoutRedirectPath?: string;
+  /**
+   * Where to send the user when they click "Login" and there is no active session.
+   * Defaults to VITE_AUTH_LOGIN_REDIRECT, falling back to "/login".
+   */
+  loginRedirectPath?: string;
 }
 
 const DEFAULT_ADMIN_PATH = "/admin/users";
 const DEFAULT_LOGOUT_REDIRECT = "/login";
+const DEFAULT_LOGIN_REDIRECT = "/login";
+
+/**
+ * Resolve the login redirect target:
+ * 1. Explicit prop
+ * 2. Vite env: VITE_AUTH_LOGIN_REDIRECT
+ * 3. "/login"
+ */
+function resolveLoginRedirect(custom?: string): string {
+  if (custom && custom.trim().length > 0) return custom;
+
+  try {
+    // Guard against non-Vite environments
+    if (
+      typeof import.meta !== "undefined" &&
+      (import.meta as any).env?.VITE_AUTH_LOGIN_REDIRECT
+    ) {
+      return (import.meta as any).env.VITE_AUTH_LOGIN_REDIRECT as string;
+    }
+  } catch {
+    // ignore and use fallback
+  }
+
+  return DEFAULT_LOGIN_REDIRECT;
+}
 
 export function IdentityMenu({
   adminPath = DEFAULT_ADMIN_PATH,
   showAdminLink = true,
   logoutRedirectPath = DEFAULT_LOGOUT_REDIRECT,
+  loginRedirectPath,
 }: IdentityMenuProps) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -25,6 +56,10 @@ export function IdentityMenu({
   const { session, loading: sessionLoading } = useSession();
 
   const label = useMemo(() => getIdentityLabel(session), [session]);
+  const loginTarget = useMemo(
+    () => resolveLoginRedirect(loginRedirectPath),
+    [loginRedirectPath],
+  );
 
   // Close on outside click.
   useEffect(() => {
@@ -75,6 +110,26 @@ export function IdentityMenu({
     }
   }, [adminPath, navigate]);
 
+  // ---------------------------------------------------------------------------
+  // Logged-out state: show a simple "Login" button on the top right
+  // ---------------------------------------------------------------------------
+  if (!sessionLoading && !session) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          window.location.href = loginTarget;
+        }}
+        className="rounded-full border border-sky-500/70 bg-slate-900/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-sky-400 shadow-sm shadow-slate-950/40 transition hover:border-sky-400 hover:bg-slate-900 hover:text-sky-300"
+      >
+        Login
+      </button>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Logged-in state: full identity dropdown menu
+  // ---------------------------------------------------------------------------
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -89,9 +144,8 @@ export function IdentityMenu({
           {sessionLoading ? "Loading session..." : label}
         </span>
         <ChevronDown
-          className={`h-3 w-3 text-slate-500 transition-transform ${
-            open ? "rotate-180" : ""
-          }`}
+          className={`h-3 w-3 text-slate-500 transition-transform ${open ? "rotate-180" : ""
+            }`}
         />
       </button>
 

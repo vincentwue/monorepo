@@ -5,6 +5,12 @@
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "paths": {
+      "@monorepo/design-system": [
+        "packages/javascript/design-system/src/styles.css"
+      ],
+      "@monorepo/design-system/*": [
+        "packages/javascript/design-system/src/*"
+      ],
       "@monorepo/*": [
         "packages/javascript/*/src"
       ]

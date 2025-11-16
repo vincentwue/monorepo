@@ -1,13 +1,14 @@
+import path from "node:path"
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
-import { resolve } from "path"
 
 export default defineConfig({
-    envDir: __dirname,
+    envDir: path.resolve(__dirname, "../.."),
     plugins: [react()],
     resolve: {
         alias: {
-            "@": resolve(__dirname, "src"),
+            "@": path.resolve(__dirname, "src"),
+            "@monorepo/auth": path.resolve(__dirname, "../../packages/javascript/auth/src/index.ts"),
         },
     },
     server: {

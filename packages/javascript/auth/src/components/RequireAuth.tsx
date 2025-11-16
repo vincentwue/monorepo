@@ -6,26 +6,37 @@ export interface RequireAuthProps {
     redirectTo?: string
     loadingFallback?: JSX.Element
     skipRedirect?: boolean
+
+    /**
+     * If true, do not redirect when unauthenticated.
+     * Instead, render nothing (unless `unauthenticatedFallback` is provided).
+     */
+    hideIfUnauthenticated?: boolean
+
+    /**
+     * If provided, this element is rendered when the user is NOT authenticated.
+     * This takes precedence over `hideIfUnauthenticated` and `skipRedirect`.
+     */
+    unauthenticatedFallback?: JSX.Element
 }
 
 /**
  * RequireAuth
  *
- * - While loading: shows a small fallback.
- * - If unauthenticated: does a full-page redirect (window.location.href)
- *   to `redirectTo` (which can be absolute, e.g. https://auth.example.com/..., or
- *   a path like "/login").
- * - If authenticated: renders children (if `skipRedirect` is not set).
- *
- * NOTE: We intentionally do NOT use React Router's <Navigate> here to avoid
- * cross-origin history.replaceState issues when redirecting to the auth-ui
- * (different port / origin).
+ * - Loading: renders fallback.
+ * - Unauthenticated:
+ *     - If `unauthenticatedFallback` provided: renders that.
+ *     - Else if `hideIfUnauthenticated` or `skipRedirect`: returns null.
+ *     - Else: redirects to `redirectTo`.
+ * - Authenticated: renders children.
  */
 export const RequireAuth = ({
     children,
     redirectTo = "/login",
     loadingFallback,
     skipRedirect = false,
+    hideIfUnauthenticated = false,
+    unauthenticatedFallback,
 }: RequireAuthProps) => {
     const { session, loading } = useSession()
 
@@ -33,26 +44,35 @@ export const RequireAuth = ({
         return loadingFallback ?? <p>Checking session...</p>
     }
 
-    if (!session && !skipRedirect) {
-        const target = redirectTo ?? "/login"
+    // --- not logged in ---
+    
+    if (!session) {
+        // 1) Local-only / custom UI if provided
+        if (unauthenticatedFallback) {
+            return unauthenticatedFallback
+        }
 
+        // 2) Stay on page but hide content
+        if (hideIfUnauthenticated || skipRedirect) {
+            return null
+        }
+
+        // 3) Redirect to login
+        const target = redirectTo ?? "/login"
         let finalUrl: string
 
         if (/^https?:\/\//i.test(target)) {
-            // Absolute URL (can be different origin, e.g. auth-ui on 5173)
-            finalUrl = target
+            finalUrl = target               // absolute URL
         } else if (target.startsWith("/")) {
-            // Path on the current origin
-            finalUrl = `${window.location.origin}${target}`
+            finalUrl = `${window.location.origin}${target}` // same origin path
         } else {
-            // Relative segment, normalize to "/segment"
-            finalUrl = `${window.location.origin}/${target}`
+            finalUrl = `${window.location.origin}/${target}` // normalize
         }
-
 
         window.location.href = finalUrl
         return null
     }
 
+    // --- logged in ---
     return children
 }

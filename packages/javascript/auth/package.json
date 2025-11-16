@@ -26,6 +26,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@monorepo/design-system": "workspace:*",
     "axios": "^1.7.9"
   },
   "peerDependencies": {

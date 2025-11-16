@@ -32,6 +32,13 @@ export default defineConfig({
           "../../../packages/javascript/topbar-layout/src/index.ts"
         ),
       },
+      {
+        find: /^@monorepo\/auth$/,
+        replacement: path.resolve(
+          __dirname,
+          "../../../packages/javascript/auth/src/index.ts"
+        ),
+      },
     ],
   },
   server: {

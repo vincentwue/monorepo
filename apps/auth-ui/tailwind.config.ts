@@ -4,9 +4,8 @@ import type { Config } from "tailwindcss";
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{ts,tsx,css}",
-    "../../../packages/javascript/topbar-layout/src/**/*.{ts,tsx}",
-    "../../../packages/javascript/auth/src/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+    "../../packages/javascript/auth/src/**/*.{ts,tsx}",
   ],
   presets: [sharedPreset],
 } satisfies Config;

@@ -6,12 +6,15 @@ export interface RegistrationProps extends Omit<AuthFlowProps, "flowType"> {
     footer?: ReactNode
 }
 
+const footerLinkClass =
+    "font-semibold text-brand underline-offset-4 transition hover:text-brand-strong hover:underline focus-visible:outline-none"
+
 const DefaultRegistrationFooter = () => (
-    <div className="ory-auth-links">
-        <button type="button" onClick={() => openOryBrowserFlow("login")}>
+    <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted">
+        <button type="button" className={footerLinkClass} onClick={() => openOryBrowserFlow("login")}>
             Already have an account?
         </button>
-        <button type="button" onClick={() => openOryBrowserFlow("recovery")}>
+        <button type="button" className={footerLinkClass} onClick={() => openOryBrowserFlow("recovery")}>
             Recover access
         </button>
     </div>

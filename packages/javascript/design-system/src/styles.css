@@ -1,0 +1,133 @@
+:root {
+  color-scheme: dark;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+
+  /* Palette (RGB triplets so rgb(var(--token) / <alpha>) works) */
+  --brand: 56 189 248;
+  --brand-strong: 59 130 246;
+  --bg: 2 6 23;
+  --card: 15 23 42;
+  --surface: 30 41 59;
+  --border-soft: 71 85 105;
+  --border-strong: 51 65 85;
+  --text-primary: 248 250 252;
+  --text-muted: 148 163 184;
+  --text-faint: 100 116 139;
+  --error: 248 113 113;
+
+  /* Shared gradients */
+  --page-gradient: radial-gradient(
+      circle at 8% 20%,
+      rgba(15, 23, 42, 0.95),
+      rgba(2, 6, 23, 0.95) 55%
+    ),
+    #020617;
+  --panel-gradient: linear-gradient(
+    135deg,
+    rgba(37, 99, 235, 0.07),
+    rgba(147, 51, 234, 0.08)
+  );
+
+  /* Scrollbar defaults */
+  --sb-track: rgba(51, 65, 85, 0.35);
+  --sb-thumb: rgba(71, 85, 105, 0.9);
+  --sb-thumb-hover: rgba(96, 165, 250, 0.95);
+  --sb-corner: transparent;
+  --sb-size: 14px;
+  --sb-border: 3px;
+  --sb-radius: 999px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  background: var(--page-gradient);
+  color: rgb(var(--text-primary));
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root,
+body,
+html {
+  min-height: 100%;
+}
+
+a {
+  color: rgb(var(--brand) / 0.9);
+}
+
+.ds-app-shell {
+  min-height: 100vh;
+  background: var(--page-gradient);
+  color: rgb(var(--text-primary));
+}
+
+.ds-glass-panel {
+  background: rgba(var(--card) / 0.8);
+  border-radius: 1.25rem;
+  border: 1px solid rgba(var(--border-soft) / 0.9);
+  box-shadow: 0 25px 60px rgba(2, 6, 23, 0.8);
+  padding: 2rem;
+  backdrop-filter: blur(18px);
+}
+
+.ds-muted {
+  color: rgb(var(--text-muted));
+}
+
+.ds-link {
+  color: rgb(var(--brand));
+  text-decoration: underline;
+}
+
+html,
+.nice-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+html::-webkit-scrollbar,
+.nice-scrollbar::-webkit-scrollbar {
+  width: var(--sb-size);
+  height: var(--sb-size);
+}
+
+html::-webkit-scrollbar-track,
+.nice-scrollbar::-webkit-scrollbar-track {
+  background: var(--sb-track);
+  border-radius: var(--sb-radius);
+}
+
+html::-webkit-scrollbar-thumb,
+.nice-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--sb-thumb), var(--sb-thumb));
+  border-radius: var(--sb-radius);
+  border: var(--sb-border) solid transparent;
+  background-clip: content-box;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+.nice-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    var(--sb-thumb-hover),
+    var(--sb-thumb-hover)
+  );
+}
+
+html::-webkit-scrollbar-corner,
+.nice-scrollbar::-webkit-scrollbar-corner {
+  background: var(--sb-corner);
+}

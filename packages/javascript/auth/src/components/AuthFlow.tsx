@@ -3,7 +3,7 @@ import type { FormEvent, ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { getOryBrowserUrl, getRedirectUrl, openOryBrowserFlow } from "../utils/ory"
 import type { FlowType } from "../types/flows"
-import "../styles.css"
+import "@monorepo/design-system/styles.css"
 
 type OryNode = {
     attributes: {
@@ -199,78 +199,101 @@ export const AuthFlow = ({
         }
     }
 
+    const shellClass = [
+        "flex min-h-screen items-center justify-center bg-page-gradient px-4 py-16 text-text",
+        className,
+    ]
+        .filter(Boolean)
+        .join(" ")
+
     if (loading || !flow) {
         return (
-            <div className={`ory-auth-shell ${className ?? ""}`}>
-                <div className="ory-auth-panel">
-                    <p className="ory-auth-loading">Loading {flowType} flow...</p>
+            <div className={shellClass}>
+                <div className="w-full max-w-md rounded-2xl border border-border/60 bg-card/80 px-8 py-12 text-center shadow-glow backdrop-blur-xl">
+                    <p className="text-sm text-muted">Loading {flowType} flow...</p>
                 </div>
             </div>
         )
     }
 
     return (
-        <div className={`ory-auth-shell ${className ?? ""}`}>
-            <form className="ory-auth-panel" onSubmit={handleSubmit}>
-                {title && <h2 className="ory-auth-title">{title}</h2>}
-                {description && <p className="ory-auth-description">{description}</p>}
+        <div className={shellClass}>
+            <form
+                className="w-full max-w-md space-y-6 rounded-2xl border border-border/60 bg-card/80 p-8 text-sm shadow-glow backdrop-blur-xl sm:p-10"
+                onSubmit={handleSubmit}
+            >
+                {(title || description) && (
+                    <div className="space-y-2 text-center">
+                        {title && <h2 className="text-2xl font-semibold text-white">{title}</h2>}
+                        {description && <p className="text-sm text-muted">{description}</p>}
+                    </div>
+                )}
 
-                {localError && <p className="ory-auth-error">{localError}</p>}
+                {localError && (
+                    <p className="rounded-2xl border border-error/40 bg-error/10 px-4 py-2 text-sm text-error">
+                        {localError}
+                    </p>
+                )}
 
                 {flow.ui.messages?.length ? (
-                    <div className="ory-auth-error">
+                    <div className="space-y-1 rounded-2xl border border-error/40 bg-error/10 px-4 py-2 text-sm text-error">
                         {flow.ui.messages.map((message) => (
                             <p key={message.id}>{message.text}</p>
                         ))}
                     </div>
                 ) : null}
 
-                {flow.ui.nodes.map((node) => {
-                    const attr = node.attributes
-                    const key = `${flow.id}-${attr.name}`
+                <div className="space-y-5">
+                    {flow.ui.nodes.map((node) => {
+                        const attr = node.attributes
+                        const key = `${flow.id}-${attr.name}`
 
-                    if (attr.type === "hidden") {
-                        return <input key={key} type="hidden" name={attr.name} value={String(attr.value ?? "")} />
-                    }
+                        if (attr.type === "hidden") {
+                            return <input key={key} type="hidden" name={attr.name} value={String(attr.value ?? "")} />
+                        }
 
-                    if (attr.type === "submit" || attr.type === "button") {
-                        return null
-                    }
+                        if (attr.type === "submit" || attr.type === "button") {
+                            return null
+                        }
 
-                    const label = node.meta?.label?.text || attr.name
-                    const currentValue = formValues[attr.name] ?? ""
+                        const label = node.meta?.label?.text || attr.name
+                        const currentValue = formValues[attr.name] ?? ""
 
-                    return (
-                        <div key={key} className="ory-auth-field">
-                            <label className="ory-auth-label" htmlFor={attr.name}>
-                                {label}
-                            </label>
-                            <input
-                                id={attr.name}
-                                name={attr.name}
-                                type={attr.name.toLowerCase().includes("email") ? "email" : attr.type}
-                                className="ory-auth-input"
-                                placeholder={attr.placeholder}
-                                autoComplete={attr.autocomplete}
-                                disabled={attr.disabled}
-                                required={attr.required}
-                                value={currentValue}
-                                onChange={(event) => handleChange(attr.name, event.target.value)}
-                            />
-                            {node.messages?.map((message) => (
-                                <p key={message.id} className="ory-auth-field-message">
-                                    {message.text}
-                                </p>
-                            ))}
-                        </div>
-                    )
-                })}
+                        return (
+                            <div key={key} className="space-y-1.5">
+                                <label className="text-sm font-medium text-muted" htmlFor={attr.name}>
+                                    {label}
+                                </label>
+                                <input
+                                    id={attr.name}
+                                    name={attr.name}
+                                    type={attr.name.toLowerCase().includes("email") ? "email" : attr.type}
+                                    className="w-full rounded-2xl border border-border/70 bg-surface/80 px-3.5 py-2.5 text-base text-text placeholder:text-muted/80 shadow-inner shadow-black/20 transition focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-40"
+                                    placeholder={attr.placeholder}
+                                    autoComplete={attr.autocomplete}
+                                    disabled={attr.disabled}
+                                    required={attr.required}
+                                    value={currentValue}
+                                    onChange={(event) => handleChange(attr.name, event.target.value)}
+                                />
+                                {node.messages?.map((message) => (
+                                    <p key={message.id} className="text-sm text-error">
+                                        {message.text}
+                                    </p>
+                                ))}
+                            </div>
+                        )
+                    })}
+                </div>
 
-                <button type="submit" className="ory-auth-submit">
+                <button
+                    type="submit"
+                    className="mt-2 inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-brand-strong to-brand px-4 py-2.5 text-base font-semibold text-white shadow-lg shadow-brand/30 transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-60"
+                >
                     {submitLabel || DEFAULT_SUBMIT_LABEL[flowType]}
                 </button>
 
-                {footer && <div className="ory-auth-footer">{footer}</div>}
+                {footer && <div className="pt-2 text-center text-sm text-muted">{footer}</div>}
             </form>
         </div>
     )
