@@ -1,0 +1,12 @@
+import { createInitialTreeState } from "./src/treeReducer";
+import { beginInlineCreate, addInlineCreatePlaceholder, confirmInlineCreate } from "./src/mutations";
+let state = createInitialTreeState([{ _id: "1", parent_id: null, title: "root", rank: 100 }]);
+const session = beginInlineCreate(state, { tempId: "temp", sourceId: "1" });
+if (!session) throw new Error("session");
+const placeholder = addInlineCreatePlaceholder(session, { afterId: "1", node: { _id: "temp", title: "new", parent_id: null } });
+import { updateNodeTitle } from "./src/mutations";
+const renamed = updateNodeTitle(placeholder, { id: "temp", title: "changed" });
+console.log("after rename inline", renamed?.inlineCreate);
+if (!renamed) throw new Error("rename");
+const confirmed = confirmInlineCreate(renamed, { tempId: "temp" });
+console.log("after confirm inline", confirmed?.inlineCreate);

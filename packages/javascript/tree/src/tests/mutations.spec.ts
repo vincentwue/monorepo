@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { indentNode, outdentNode, moveNode } from "../mutations";
+import {
+  indentNode,
+  outdentNode,
+  moveNode,
+  beginInlineCreate,
+  addInlineCreatePlaceholder,
+  confirmInlineCreate,
+} from "../mutations";
 import { createInitialTreeState } from "../treeReducer";
 
 const nodes = [
@@ -29,5 +36,37 @@ describe("mutations", () => {
     const next = moveNode(state, "1", 1);
     const ranks = next?.nodes.map(n => n.rank);
     expect(ranks).not.toEqual([100, 200, 300]); // rank order changed
+  });
+
+  it("supports inline create repeatedly and keeps placeholder selected", () => {
+    const initial = createInitialTreeState(nodes);
+    const firstSession = beginInlineCreate(initial, {
+      tempId: "temp-one",
+      sourceId: "1",
+    });
+    expect(firstSession?.inlineCreate?.tempId).toBe("temp-one");
+    const firstPlaceholder = addInlineCreatePlaceholder(firstSession!, {
+      afterId: "1",
+      node: { _id: "temp-one", title: "New node", parent_id: null },
+    });
+    expect(firstPlaceholder.selectedId).toBe("temp-one");
+    expect(firstPlaceholder.inlineCreate?.tempId).toBe("temp-one");
+    const confirmed = confirmInlineCreate(firstPlaceholder, {
+      tempId: "temp-one",
+      nodeId: "1.1",
+    });
+    expect(confirmed?.inlineCreate).toBeNull();
+    expect(confirmed?.selectedId).toBe("1.1");
+
+    const secondSession = beginInlineCreate(confirmed!, {
+      tempId: "temp-two",
+      sourceId: "2",
+    });
+    const secondPlaceholder = addInlineCreatePlaceholder(secondSession!, {
+      afterId: "2",
+      node: { _id: "temp-two", title: "Another node", parent_id: null },
+    });
+    expect(secondPlaceholder.selectedId).toBe("temp-two");
+    expect(secondPlaceholder.inlineCreate?.tempId).toBe("temp-two");
   });
 });

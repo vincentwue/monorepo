@@ -328,39 +328,42 @@ export const addInlineCreatePlaceholder = (
   const parentId = afterNode?.parent_id ?? payload.node.parent_id ?? null;
   const timestamp = new Date().toISOString();
 
+  const siblings = cloned
+    .filter((n) => n.parent_id === parentId)
+    .slice()
+    .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+
+  const afterSiblingIndex = payload.afterId
+    ? siblings.findIndex((n) => n._id === payload.afterId)
+    : -1;
+  const afterSibling =
+    afterSiblingIndex >= 0 ? siblings[afterSiblingIndex] : null;
+  const beforeSibling =
+    afterSiblingIndex >= 0 ? siblings[afterSiblingIndex + 1] ?? null : siblings[0] ?? null;
+
+  let nextRank: number;
+  if (afterSibling && beforeSibling)
+    nextRank = computeMiddleRank(
+      afterSibling.rank ?? 0,
+      beforeSibling.rank ?? 0
+    );
+  else if (afterSibling) nextRank = computeRankAfter(afterSibling.rank ?? 0);
+  else if (beforeSibling) nextRank = computeRankBefore(beforeSibling.rank ?? 0);
+  else nextRank = 100;
+
   const placeholder: BaseNode = {
     ...payload.node,
     parent_id: parentId,
     isPlaceholder: true,
     created_at: payload.node.created_at ?? timestamp,
     updated_at: timestamp,
+    rank: nextRank,
   };
 
-  if (afterNodeIndex >= 0) cloned.splice(afterNodeIndex + 1, 0, placeholder);
-  else cloned.push(placeholder);
-
-  const siblings = cloned
-    .filter((n) => n.parent_id === parentId)
-    .slice()
-    .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
-
-  const idx = siblings.findIndex((n) => n._id === placeholder._id);
-  const after = idx > 0 ? siblings[idx - 1] : null;
-  const before = idx + 1 < siblings.length ? siblings[idx + 1] : null;
-
-  let nextRank: number;
-  if (after && before)
-    nextRank = computeMiddleRank(after.rank ?? 0, before.rank ?? 0);
-  else if (after) nextRank = computeRankAfter(after.rank ?? 0);
-  else if (before) nextRank = computeRankBefore(before.rank ?? 0);
-  else nextRank = 100;
-
-  const updated = cloned.map((n) =>
-    n._id === placeholder._id ? { ...n, rank: nextRank } : n
-  );
+  cloned.push(placeholder);
 
   return rebuildState(
-    updated,
+    cloned,
     state.expandedIds,
     placeholder._id,
     state.inlineCreate

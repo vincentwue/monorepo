@@ -1,5 +1,5 @@
 // src/TreeProvider.tsx
-import React, { useEffect, useMemo, useReducer } from "react";
+import React, { useEffect, useMemo, useReducer, useRef } from "react";
 import { TreeActionsContext, TreeStateContext } from "./context";
 import {
   addInlineCreatePlaceholder,
@@ -16,6 +16,13 @@ import { registerTree, unregisterTree } from "./registry";
 import { createInitialTreeState, treeReducer } from "./treeReducer";
 import type { TreeActions, TreePersistence, TreeState } from "./types";
 
+type BaseActionKeys =
+  | "setNodes"
+  | "select"
+  | "toggleExpanded"
+  | "setExpanded"
+  | "setInlineCreate";
+
 interface TreeProviderProps {
   treeKey: string;
   nodes: any[];
@@ -29,48 +36,65 @@ export const TreeProvider = ({
   children,
   persistence,
 }: TreeProviderProps) => {
-  const [state, dispatch] = useReducer(treeReducer, createInitialTreeState(nodes));
+  const [state, dispatch] = useReducer(
+    treeReducer,
+    createInitialTreeState(nodes)
+  );
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // --- Core action set ---
-  const baseActions = useMemo<TreeActions>(() => ({
-    setNodes: (nodes) => dispatch({ type: "setNodes", nodes }),
-    select: (id) => dispatch({ type: "select", id }),
-    toggleExpanded: (id) => dispatch({ type: "toggleExpanded", id }),
-    setExpanded: (ids) => dispatch({ type: "setExpanded", ids }),
-    setInlineCreate: (inlineCreate) =>
-      dispatch({ type: "setInlineCreate", inlineCreate }),
-  }), []);
+  const baseActions = useMemo<Pick<TreeActions, BaseActionKeys>>(
+    () => ({
+      setNodes: (nodes) => dispatch({ type: "setNodes", nodes }),
+      select: (id) => dispatch({ type: "select", id }),
+      toggleExpanded: (id) => dispatch({ type: "toggleExpanded", id }),
+      setExpanded: (ids) => dispatch({ type: "setExpanded", ids }),
+      setInlineCreate: (inlineCreate) =>
+        dispatch({ type: "setInlineCreate", inlineCreate }),
+    }),
+    []
+  );
 
   // --- Mutation helpers ---
   const applyMutation = (mutator: (state: TreeState) => TreeState | null) => {
-    const next = mutator(state);
+    const next = mutator(stateRef.current);
     if (next) {
       dispatch({ type: "setNodes", nodes: next.nodes });
       dispatch({ type: "setExpanded", ids: next.expandedIds });
       dispatch({ type: "select", id: next.selectedId });
       dispatch({ type: "setInlineCreate", inlineCreate: next.inlineCreate });
+      stateRef.current = next;
     }
   };
 
-  const extra = useMemo(() => ({
-    indent: (id: string) => applyMutation((s) => indentNode(s, id)),
-    outdent: (id: string) => applyMutation((s) => outdentNode(s, id)),
-    moveUp: (id: string) => applyMutation((s) => moveNode(s, id, -1)),
-    moveDown: (id: string) => applyMutation((s) => moveNode(s, id, 1)),
-    rename: (id: string, title: string) =>
-      applyMutation((s) => updateNodeTitle(s, { id, title })),
-    delete: (id: string) => applyMutation((s) => deleteNode(s, id)),
-    beginInlineCreate: (params: any) =>
-      applyMutation((s) => beginInlineCreate(s, params)),
-    addInlineCreatePlaceholder: (payload: any) =>
-      applyMutation((s) => addInlineCreatePlaceholder(s, payload)),
-    cancelInlineCreate: (tempId: string) =>
-      applyMutation((s) => cancelInlineCreate(s, tempId)),
-    confirmInlineCreate: (params: any) =>
-      applyMutation((s) => confirmInlineCreate(s, params)),
-  }), [state]);
+  const extra = useMemo<Omit<TreeActions, BaseActionKeys>>(
+    () => ({
+      indent: (id: string) => applyMutation((s) => indentNode(s, id)),
+      outdent: (id: string) => applyMutation((s) => outdentNode(s, id)),
+      moveUp: (id: string) => applyMutation((s) => moveNode(s, id, -1)),
+      moveDown: (id: string) => applyMutation((s) => moveNode(s, id, 1)),
+      rename: (id: string, title: string) =>
+        applyMutation((s) => updateNodeTitle(s, { id, title })),
+      delete: (id: string) => applyMutation((s) => deleteNode(s, id)),
+      beginInlineCreate: (params: any) =>
+        applyMutation((s) => beginInlineCreate(s, params)),
+      addInlineCreatePlaceholder: (payload: any) =>
+        applyMutation((s) => addInlineCreatePlaceholder(s, payload)),
+      cancelInlineCreate: (tempId: string) =>
+        applyMutation((s) => cancelInlineCreate(s, tempId)),
+      confirmInlineCreate: (params: any) =>
+        applyMutation((s) => confirmInlineCreate(s, params)),
+    }),
+    [state]
+  );
 
-  const allActions = { ...baseActions, ...extra };
+  const allActions = useMemo<TreeActions>(
+    () => ({ ...baseActions, ...extra }),
+    [baseActions, extra]
+  );
 
   // --- Register once (no state dependency!) ---
   useEffect(() => {

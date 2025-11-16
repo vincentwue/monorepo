@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 5176,
   },
   test: {
     root: __dirname, // ✅ ensures Vitest looks in /src instead of /examples
