@@ -3,7 +3,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from ideas_api import router as ideas_router
+from ideas_api import router as ideas_router, settings_router as idea_settings_router
+import loguru
 from permissions import permissions_router
 
 from .config import settings
@@ -19,6 +20,8 @@ if settings.cors_allow_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    
+loguru.logger.info("CORS middleware added"+str(settings.cors_allow_origins))
 
 
 @app.get("/health", tags=["health"])
@@ -30,6 +33,7 @@ async def health() -> dict[str, str]:
 
 app.include_router(permissions_router)
 app.include_router(ideas_router)
+app.include_router(idea_settings_router)
 
 """Run with:
 

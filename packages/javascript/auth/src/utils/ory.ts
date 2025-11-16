@@ -1,13 +1,18 @@
 import type { FlowType } from "../types/flows"
 
-const DEFAULT_BROWSER_URL = "http://localhost:4433"
-const DEFAULT_PUBLIC_API_URL = DEFAULT_BROWSER_URL
+const sanitizeUrl = (value: string) => value.replace(/\/$/, "")
 
-export const getOryBrowserUrl = () =>
-    import.meta.env?.VITE_ORY_BROWSER_URL?.replace(/\/$/, "") || DEFAULT_BROWSER_URL
+const requireEnv = (value: string | undefined, key: string) => {
+    if (!value) {
+        throw new Error(`Missing ${key} environment variable.`)
+    }
+    return sanitizeUrl(value)
+}
+
+export const getOryBrowserUrl = () => requireEnv(import.meta.env?.VITE_ORY_BROWSER_URL, "VITE_ORY_BROWSER_URL")
 
 export const getOryPublicApiBaseUrl = () =>
-    import.meta.env?.VITE_ORY_PUBLIC_API_URL?.replace(/\/$/, "") || DEFAULT_PUBLIC_API_URL
+    requireEnv(import.meta.env?.VITE_ORY_PUBLIC_API_URL, "VITE_ORY_PUBLIC_API_URL")
 
 export const getRedirectUrl = (flowType: FlowType) => {
     const env = import.meta.env

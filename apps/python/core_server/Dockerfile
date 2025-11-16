@@ -17,6 +17,7 @@ RUN pip install --upgrade pip \
     && pip install --no-cache-dir -e packages/python/db_core \
     && pip install --no-cache-dir -e packages/python/permissions \
     && pip install --no-cache-dir -e packages/python/ideas_repo \
+    && pip install --no-cache-dir -e packages/python/settings_repo \
     && pip install --no-cache-dir -e packages/python/ideas_api \
     && pip install --no-cache-dir -e apps/python/core_server
 

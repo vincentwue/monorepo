@@ -3,14 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ideas_api"
+name = "settings_repo"
 version = "0.1.0"
-description = "FastAPI router exposing Ideas endpoints."
+description = "Persistence and services for user-specific UI settings."
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi",
-    "httpx",
     "pydantic>=2.0",
-    "ideas_repo",
-    "settings_repo",
+    "db_core",
+    "permissions",
+    "pymongo",
 ]

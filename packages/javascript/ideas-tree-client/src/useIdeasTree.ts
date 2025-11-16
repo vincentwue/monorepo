@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { isAxiosError } from "axios";
 
 import type { IdeasApiClient } from "./apiClient.js";
 import type { IdeaNodeView, ReorderDirection } from "./types.js";
@@ -8,7 +9,7 @@ export interface UseIdeasTreeResult {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  createChild: (parentId: string | null, title: string, note?: string) => Promise<void>;
+  createChild: (parentId: string | null, title: string, note?: string) => Promise<IdeaNodeView>;
   moveNode: (nodeId: string, newParentId: string | null) => Promise<void>;
   reorderNode: (nodeId: string, direction: ReorderDirection) => Promise<void>;
 }
@@ -28,11 +29,25 @@ export function useIdeasTree(parentId: string | null, client: IdeasApiClient): U
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchNodes = useCallback(async () => {
+    if (parentId === null) {
+      try {
+        return await client.listTree();
+      } catch (err: unknown) {
+        if (isAxiosError(err) && err.response?.status === 404) {
+          return client.listChildren(null);
+        }
+        throw err;
+      }
+    }
+    return client.listChildren(parentId);
+  }, [client, parentId]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await client.listChildren(parentId);
+      const data = await fetchNodes();
       setNodes(data);
     } catch (err: any) {
       console.error("Failed to load ideas children", err);
@@ -40,7 +55,7 @@ export function useIdeasTree(parentId: string | null, client: IdeasApiClient): U
     } finally {
       setLoading(false);
     }
-  }, [client, parentId]);
+  }, [fetchNodes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +64,7 @@ export function useIdeasTree(parentId: string | null, client: IdeasApiClient): U
       setLoading(true);
       setError(null);
       try {
-        const data = await client.listChildren(parentId);
+        const data = await fetchNodes();
         if (!cancelled) {
           setNodes(data);
         }
@@ -70,16 +85,18 @@ export function useIdeasTree(parentId: string | null, client: IdeasApiClient): U
     return () => {
       cancelled = true;
     };
-  }, [client, parentId]);
+  }, [fetchNodes]);
 
   const createChild = useCallback(
     async (pId: string | null, title: string, note?: string) => {
       try {
-        await client.createChild(pId, title, note);
+        const created = await client.createChild(pId, title, note);
         await refresh();
+        return created;
       } catch (err: any) {
         console.error("Failed to create child idea", err);
         setError(err?.message ?? "Failed to create idea");
+        throw err;
       }
     },
     [client, refresh],

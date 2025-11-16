@@ -8,7 +8,7 @@ import "../src/styles.css"
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
         <div className="example-shell">
-            <MobileTreeNavigator initialNodes={vibrantTree} />
+            <MobileTreeNavigator nodes={vibrantTree} />
         </div>
     </React.StrictMode>,
 )

@@ -12,4 +12,6 @@ dependencies = [
     "uvicorn[standard]",
     "ideas_api",
     "permissions",
+    "python-dotenv",
+    "loguru>=0.7.3",
 ]

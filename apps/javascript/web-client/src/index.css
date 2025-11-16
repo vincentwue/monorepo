@@ -1,5 +1,7 @@
 /* Tailwind layers first */
 @tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* 🔵 Global scrollbar + tokens BEGIN */
 :root {
@@ -28,7 +30,6 @@ html {
 } /* was: stable both-edges */
 
 html {
-
 }
 
 /* Firefox (document) */

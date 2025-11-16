@@ -11,3 +11,14 @@ members = [
     "apps/python/*",
     "packages/python/*",
 ]
+
+[tool.uv.sources]
+context-provider = { workspace = true }
+core-server = { workspace = true }
+mongo-connector = { workspace = true }
+db-core = { workspace = true }
+entitlements = { workspace = true }
+ideas-api = { workspace = true }
+ideas-repo = { workspace = true }
+permissions = { workspace = true }
+settings-repo = { workspace = true }

@@ -6,10 +6,8 @@ import { FocusOverlay } from "./components/FocusOverlay";
 import { IdeasTreePage } from "./features/ideas/IdeasTreePage";
 import { TopBarLayout } from "./layout/TopBarLayout";
 
-const AUTH_UI_BASE_URL =
-  import.meta.env.VITE_AUTH_UI_BASE_URL ?? "http://localhost:5173";
-const APP_BASE_URL =
-  import.meta.env.VITE_APP_BASE_URL ?? "http://localhost:5174";
+const AUTH_UI_BASE_URL = import.meta.env.VITE_AUTH_UI_BASE_URL ?? "";
+const APP_BASE_URL = import.meta.env.VITE_APP_BASE_URL ?? "";
 
 export default function App() {
   useEffect(() => {
@@ -17,16 +15,22 @@ export default function App() {
   }, []);
 
   const currentUrl = window.location.href;
+  const returnTo = currentUrl || APP_BASE_URL || window.location.href;
+  const loginTargetBase = AUTH_UI_BASE_URL || "";
+
+  if (!AUTH_UI_BASE_URL) {
+    console.warn("Missing VITE_AUTH_UI_BASE_URL; falling back to relative login route.");
+  }
+
+  const loginUrl = loginTargetBase
+    ? `${loginTargetBase}/login?return_to=${encodeURIComponent(returnTo)}`
+    : `/login?return_to=${encodeURIComponent(returnTo)}`;
 
   return (
     <BrowserRouter>
       <TopBarLayout>
-        {/* 👇 Render login button if logged out */}
-        <SessionAwareLoginButton
-          authUrl={`${AUTH_UI_BASE_URL}/login?return_to=${encodeURIComponent(
-            currentUrl || APP_BASE_URL
-          )}`}
-        />
+        {/* ?Y'? Render login button if logged out */}
+        <SessionAwareLoginButton authUrl={loginUrl} />
 
         <div className="relative flex h-full min-h-0 flex-1 flex-col gap-4 bg-slate-900 p-4 text-white">
           <div className="flex h-full min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-800/70 bg-slate-900/80">
@@ -34,12 +38,7 @@ export default function App() {
               <Route
                 path="/*"
                 element={
-                  <RequireAuth
-                    skipRedirect
-                    redirectTo={`${AUTH_UI_BASE_URL}/login?return_to=${encodeURIComponent(
-                      currentUrl || APP_BASE_URL
-                    )}`}
-                  >
+                  <RequireAuth skipRedirect redirectTo={loginUrl}>
                     <IdeasTreePage />
                   </RequireAuth>
                 }
@@ -55,7 +54,7 @@ export default function App() {
 }
 
 // ---------------------------------------------------------
-// 🔥 New: Login button that auto-hides when logged in
+// ?Y"? New: Login button that auto-hides when logged in
 // ---------------------------------------------------------
 
 function SessionAwareLoginButton({ authUrl }: { authUrl: string }) {

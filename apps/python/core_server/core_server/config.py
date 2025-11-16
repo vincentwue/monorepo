@@ -5,7 +5,11 @@ from __future__ import annotations
 import os
 from typing import List
 
+from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel, Field
+
+# Search for the nearest .env so running from subdirectories still loads root config.
+load_dotenv(find_dotenv(usecwd=True))
 
 
 def _default_cors_origins() -> List[str]:
@@ -14,8 +18,12 @@ def _default_cors_origins() -> List[str]:
     raw = os.getenv("CORE_CORS_ALLOW_ORIGINS")
     if raw:
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
-    # Local dev defaults: SPA (5174) + auth UI (5173)
-    return ["http://localhost:5174", "http://localhost:5173"]
+    derived = []
+    for key in ("APP_BASE_URL", "AUTH_UI_BASE_URL"):
+        value = os.getenv(key)
+        if value:
+            derived.append(value.strip())
+    return derived
 
 
 class CoreSettings(BaseModel):

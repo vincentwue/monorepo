@@ -1,3 +1,5 @@
+declare const process: { env?: Record<string, string | undefined> } | undefined;
+
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 export interface Connection {
@@ -18,9 +20,28 @@ export function saveConnections(conns: Connection[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(conns));
 }
 
+const resolveEnv = (key: string): string | undefined => {
+  if (typeof import.meta !== "undefined" && import.meta.env && key in import.meta.env) {
+    const value = (import.meta.env as Record<string, string | undefined>)[key];
+    if (value) return value;
+  }
+  if (typeof process !== "undefined" && process?.env) {
+    const value = process.env[key];
+    if (value) return value;
+  }
+  return undefined;
+};
+
+const apiBaseUrl =
+  resolveEnv("VITE_MONGO_CONNECTOR_API_URL") ?? resolveEnv("MONGO_CONNECTOR_API_URL");
+
+if (!apiBaseUrl) {
+  throw new Error("Missing mongo connector base URL configuration.");
+}
+
 // --- Base setup ---
 const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:8010",
+  baseUrl: apiBaseUrl,
   prepareHeaders: (headers) => {
     headers.set("Content-Type", "application/json");
     return headers;

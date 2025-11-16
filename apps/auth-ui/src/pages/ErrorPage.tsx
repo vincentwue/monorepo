@@ -27,7 +27,13 @@ export const ErrorPage = () => {
             return
         }
 
-        const base = sanitizeBaseUrl(import.meta.env.VITE_ORY_BROWSER_URL ?? "http://localhost:4433")
+        const rawOryBase = import.meta.env.VITE_ORY_BROWSER_URL
+        if (!rawOryBase) {
+            setError("Missing Ory browser URL configuration.")
+            setLoading(false)
+            return
+        }
+        const base = sanitizeBaseUrl(rawOryBase)
 
         const url = new URL(`${base}/self-service/errors`)
         url.searchParams.set("id", errorId)

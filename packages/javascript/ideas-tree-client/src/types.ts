@@ -17,3 +17,8 @@ export interface IdeasTreeState {
   loading: boolean;
   error: string | null;
 }
+
+export interface IdeaTreeUiState {
+  expandedIds: string[];
+  selectedId: string | null;
+}

@@ -31,8 +31,14 @@ async def keto_check(
     }
     url = f"{settings.keto_read_url.rstrip('/')}/relation-tuples/check"
     async with httpx.AsyncClient(timeout=_timeout_value(timeout)) as client:
-        response = await client.post(url, json=payload)
-        response.raise_for_status()
+        try:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # Keto returns 403 when checks fail; map that to allowed=False.
+            if exc.response is not None and exc.response.status_code == 403:
+                return False
+            raise
         data = response.json()
     return bool(data.get("allowed"))
 
