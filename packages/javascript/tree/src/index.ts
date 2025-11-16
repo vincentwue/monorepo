@@ -6,6 +6,7 @@ export {
   TreeKeyboardShortcuts,
   DEFAULT_TREE_SHORTCUTS,
 } from "./TreeKeyboardShortcuts";
+export { ThemedTreeView } from "./themed/TreeView";
 export type {
   TreeKeyboardShortcut,
   TreeKeyboardShortcutAction,

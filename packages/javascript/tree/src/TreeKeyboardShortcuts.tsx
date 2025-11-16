@@ -1,8 +1,9 @@
 // src/TreeKeyboardShortcuts.tsx
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { NodeTreeNode } from "./internal/buildNodeTree";
+import { startEditSession } from "./editEvents";
 import { useTreeActions, useTreeState } from "./hooks";
+import type { NodeTreeNode } from "./internal/buildNodeTree";
 import type { TreeActions, TreeState } from "./types";
 
 type ModifierState = {
@@ -109,8 +110,16 @@ const parseKeyDescriptor = (descriptor: string): {
   modifiers: ModifierState;
   key: string;
 } => {
-  const parts = descriptor.split("+").map((part) => part.trim()).filter(Boolean);
-  const modifiers: ModifierState = { alt: false, ctrl: false, meta: false, shift: false };
+  const parts = descriptor
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const modifiers: ModifierState = {
+    alt: false,
+    ctrl: false,
+    meta: false,
+    shift: false,
+  };
   const keyPart = parts.pop() ?? "";
 
   for (const mod of parts) {
@@ -141,8 +150,40 @@ const normalizeShortcut = (shortcut: TreeKeyboardShortcut): NormalizedShortcut =
   };
 };
 
-const computeVisibleNodeIds = (flat: NodeTreeNode[]): string[] =>
-  flat.map((node) => node._id);
+/**
+ * Compute the list of *visible* node ids, i.e. nodes whose entire
+ * ancestor chain is expanded. Root nodes are always visible.
+ * This fixes ArrowUp/ArrowDown so they skip children of collapsed nodes.
+ */
+const computeVisibleNodeIds = (
+  flat: NodeTreeNode[],
+  expandedIds: string[]
+): string[] => {
+  const expandedSet = new Set(expandedIds);
+  const byId = new Map(flat.map((n) => [n._id, n]));
+  const result: string[] = [];
+
+  const isVisible = (node: NodeTreeNode): boolean => {
+    const parentId = node.parent_id;
+    if (!parentId) return true; // root visible
+    let currentId: string | null = parentId;
+    while (currentId) {
+      if (!expandedSet.has(currentId)) return false;
+      const parent = byId.get(currentId);
+      currentId = parent?.parent_id ?? null;
+    }
+    return true;
+  };
+
+  for (const node of flat) {
+    if (!node._id) continue;
+    if (isVisible(node)) {
+      result.push(node._id);
+    }
+  }
+
+  return result;
+};
 
 const doesEventMatchShortcut = (
   shortcut: NormalizedShortcut,
@@ -206,12 +247,6 @@ const shortcutHandlers: Record<TreeKeyboardShortcutAction, ShortcutHandler> = {
       runtime.actions.toggleExpanded(selectedId);
       return true;
     }
-
-    const firstChild = node.children?.[0];
-    if (firstChild) {
-      runtime.actions.select(firstChild._id);
-      return true;
-    }
     return false;
   },
   "tree.collapseToParent": ({ runtime }) => {
@@ -260,18 +295,29 @@ const shortcutHandlers: Record<TreeKeyboardShortcutAction, ShortcutHandler> = {
     return true;
   },
   "tree.editTitle": ({ runtime }) => {
+    const inlineState = runtime.state.inlineCreate;
     const selectedId = runtime.state.selectedId;
     if (!selectedId) return false;
-    const node = runtime.nodeMap.get(selectedId);
-    const nextTitle = window.prompt("Rename node:", node?.title ?? "");
-    if (!nextTitle) return false;
-    const normalized = nextTitle.trim();
-    if (!normalized) return false;
-    runtime.actions.rename(selectedId, normalized);
+
+    if (inlineState) {
+      window.dispatchEvent(
+        new CustomEvent("tree-inline-edit-focus", { detail: inlineState.tempId })
+      );
+      return true;
+    }
+
+    startEditSession(selectedId);
+    window.dispatchEvent(
+      new CustomEvent("tree-inline-edit-focus", { detail: selectedId })
+    );
     return true;
   },
   "tree.inlineCreate": ({ runtime, shortcut }) => {
-    const intent = shortcut.args?.intent as "start" | "confirm" | "cancel" | undefined;
+    const intent = shortcut.args?.intent as
+      | "start"
+      | "confirm"
+      | "cancel"
+      | undefined;
     if (!intent) return false;
 
     if (intent === "start") {
@@ -365,8 +411,8 @@ export const TreeKeyboardShortcuts = ({
   }, [shortcuts]);
 
   const visibleNodeIds = useMemo(
-    () => computeVisibleNodeIds(state.flat),
-    [state.flat]
+    () => computeVisibleNodeIds(state.flat, state.expandedIds),
+    [state.flat, state.expandedIds]
   );
 
   const nodeMap = useMemo(
@@ -416,13 +462,11 @@ export const TreeKeyboardShortcuts = ({
 
       const allowedWhileEditing = new Set<TreeKeyboardShortcutAction>([
         "tree.inlineCreate",
+        "tree.editTitle",
       ]);
 
       for (const shortcut of shortcutsList) {
-        if (
-          isEditableTarget &&
-          !allowedWhileEditing.has(shortcut.action)
-        )
+        if (isEditableTarget && !allowedWhileEditing.has(shortcut.action))
           continue;
         if (isEditableTarget && shortcut.action === "tree.inlineCreate") {
           const intent = shortcut.args?.intent;
