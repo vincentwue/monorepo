@@ -1,5 +1,5 @@
 // features/ideas/LocalIdeasTreePage.tsx
-import type { IdeaNodeView } from "@ideas/tree-client";
+import type { IdeaNodeView, ReorderDirection } from "@ideas/tree-client";
 import { useCallback, useMemo, useState } from "react";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { DesktopIdeasTree } from "./components/DesktopIdeasTree";
@@ -20,7 +20,11 @@ export function LocalIdeasTreePage() {
     const [ideaMutationError, setIdeaMutationError] = useState<string | null>(null);
 
     const handleCreateIdea = useCallback(
-        async (parentId: string | null, rawTitle: string): Promise<IdeaNodeView> => {
+        async (
+            parentId: string | null,
+            rawTitle: string,
+            afterId?: string | null,
+        ): Promise<IdeaNodeView> => {
             const title = rawTitle.trim() || "Untitled idea";
             setCreatingIdea(true);
             setIdeaMutationError(null);
@@ -40,8 +44,21 @@ export function LocalIdeasTreePage() {
         [],
     );
 
+    const handleRenameNode = useCallback(async (nodeId: string, title: string) => {
+        setNodes((prev) =>
+            prev.map((node) =>
+                node.id === nodeId
+                    ? {
+                        ...node,
+                        title,
+                    }
+                    : node,
+            ),
+        );
+    }, []);
+
     // TODO: add local reorder / move / delete logic if needed
-    const handleReorderNode = useCallback(async () => { }, []);
+    const handleReorderNode = useCallback(async (_nodeId: string, _direction: ReorderDirection, _targetIndex: number) => { }, []);
     const handleMoveNode = useCallback(async () => { }, []);
     const handleDeleteNode = useCallback(async () => { }, []);
 
@@ -66,6 +83,7 @@ export function LocalIdeasTreePage() {
                 creatingIdea={creatingIdea}
                 mutationError={ideaMutationError}
                 onCreateIdea={handleCreateIdea}
+                onRenameNode={handleRenameNode}
             />
         );
     }
@@ -79,6 +97,7 @@ export function LocalIdeasTreePage() {
             onReorderNode={handleReorderNode}
             onMoveNode={handleMoveNode}
             onDeleteNode={handleDeleteNode}
+            onRenameNode={handleRenameNode}
             initialExpandedIds={[]}
             initialSelectedId={null}
             initialStateKey="local"

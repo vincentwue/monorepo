@@ -17,7 +17,12 @@ export interface MobileIdeasTreeProps {
   onCreateRoot: () => Promise<void> | void;
   creatingIdea: boolean;
   mutationError: string | null;
-  onCreateIdea: (parentId: string | null, title: string) => Promise<IdeaNodeView>;
+  onCreateIdea: (
+    parentId: string | null,
+    title: string,
+    afterId?: string | null,
+  ) => Promise<IdeaNodeView>;
+  onRenameNode: (nodeId: string, title: string) => Promise<void>;
 }
 
 export function MobileIdeasTree({
@@ -33,6 +38,7 @@ export function MobileIdeasTree({
   creatingIdea,
   mutationError,
   onCreateIdea,
+  onRenameNode,
 }: MobileIdeasTreeProps) {
   return (
     <div className="flex flex-1 flex-col gap-2 p-3">
@@ -71,6 +77,9 @@ export function MobileIdeasTree({
             onPathChange={onPathChange}
             onCreateChild={async (parentId, title) => {
               await onCreateIdea(parentId, title);
+            }}
+            onRenameNode={async (nodeId, title) => {
+              await onRenameNode(nodeId, title);
             }}
             disabled={creatingIdea}
             errorMessage={mutationError}

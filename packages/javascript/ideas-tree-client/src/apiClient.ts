@@ -106,11 +106,15 @@ export class IdeasApiClient {
   async createChild(
     parentId: string | null,
     title: string,
-    note?: string
+    note?: string,
+    afterId?: string | null
   ): Promise<IdeaNodeView> {
     const params: Record<string, string> = {};
     if (parentId != null) {
       params.parent_id = parentId;
+    }
+    if (typeof afterId === "string" && afterId.length > 0) {
+      params.after_id = afterId;
     }
 
     const body: { title: string; note?: string } = { title };
@@ -144,18 +148,27 @@ export class IdeasApiClient {
   async reorderNode(
     nodeId: string,
     direction: ReorderDirection,
-    targetRank?: number
+    targetIndex?: number
   ): Promise<IdeaNodeView> {
-    const body: { direction: ReorderDirection; target_rank?: number } = {
+    const body: { direction: ReorderDirection; target_index?: number } = {
       direction,
     };
 
-    if (typeof targetRank === "number") {
-      body.target_rank = targetRank;
+    if (typeof targetIndex === "number" && Number.isFinite(targetIndex)) {
+      body.target_index = targetIndex;
     }
 
     const res = await this.http.post<IdeaNodeApiResponse>(
       `/ideas/nodes/${encodeURIComponent(nodeId)}/reorder`,
+      body
+    );
+    return normalizeIdeaNode(res.data);
+  }
+
+  async renameNode(nodeId: string, title: string): Promise<IdeaNodeView> {
+    const body = { title };
+    const res = await this.http.patch<IdeaNodeApiResponse>(
+      `/ideas/nodes/${encodeURIComponent(nodeId)}`,
       body
     );
     return normalizeIdeaNode(res.data);

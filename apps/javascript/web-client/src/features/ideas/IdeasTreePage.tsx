@@ -27,7 +27,16 @@ export function IdeasTreePage() {
     return new IdeasApiClient({ baseUrl: apiBaseUrl });
   }, [apiBaseUrl]);
 
-  const { nodes, loading, error, reorderNode, createChild, moveNode, deleteNode } = useIdeasTree(
+  const {
+    nodes,
+    loading,
+    error,
+    reorderNode,
+    createChild,
+    moveNode,
+    deleteNode,
+    renameNode,
+  } = useIdeasTree(
     null,
     client,
   );
@@ -57,12 +66,16 @@ export function IdeasTreePage() {
   const [ideaMutationError, setIdeaMutationError] = useState<string | null>(null);
 
   const handleCreateIdea = useCallback(
-    async (parentId: string | null, rawTitle: string): Promise<IdeaNodeView> => {
+    async (
+      parentId: string | null,
+      rawTitle: string,
+      afterId?: string | null,
+    ): Promise<IdeaNodeView> => {
       const title = rawTitle.trim() || "Untitled idea";
       setCreatingIdea(true);
       setIdeaMutationError(null);
       try {
-        const created = await createChild(parentId, title);
+        const created = await createChild(parentId, title, undefined, afterId ?? undefined);
         return created;
       } catch (err: unknown) {
         console.error("[IdeasTreePage] failed to create idea", err);
@@ -77,10 +90,10 @@ export function IdeasTreePage() {
   );
 
   const handleReorderNode = useCallback(
-    async (nodeId: string, direction: ReorderDirection) => {
+    async (nodeId: string, direction: ReorderDirection, targetIndex: number) => {
       setIdeaMutationError(null);
       try {
-        await reorderNode(nodeId, direction);
+        await reorderNode(nodeId, direction, targetIndex);
       } catch (err: unknown) {
         console.error("[IdeasTreePage] failed to reorder idea", err);
         const message = err instanceof Error ? err.message : "Failed to reorder idea";
@@ -121,6 +134,21 @@ export function IdeasTreePage() {
     [deleteNode],
   );
 
+  const handleRenameNode = useCallback(
+    async (nodeId: string, title: string) => {
+      setIdeaMutationError(null);
+      try {
+        await renameNode(nodeId, title);
+      } catch (err: unknown) {
+        console.error("[IdeasTreePage] failed to rename idea", err);
+        const message = err instanceof Error ? err.message : "Failed to rename idea";
+        setIdeaMutationError(message);
+        throw err;
+      }
+    },
+    [renameNode],
+  );
+
   const handleCreateRootPrompt = useCallback(async () => {
     const title = window.prompt("Name your new idea", "New idea");
     if (title === null) return;
@@ -155,6 +183,7 @@ export function IdeasTreePage() {
       onReorderNode={handleReorderNode}
       onMoveNode={handleMoveNode}
       onDeleteNode={handleDeleteNode}
+      onRenameNode={handleRenameNode}
       initialExpandedIds={ideaTreeSettings.expandedIds}
       initialSelectedId={ideaTreeSettings.selectedId}
       initialStateKey={settingsKey}
@@ -162,6 +191,7 @@ export function IdeasTreePage() {
       onSelectionChange={handleSelectionChange}
       settingsHydrated={settingsHydrated}
       onCreateIdea={handleCreateIdea}
+      onRenameNode={handleRenameNode}
     />
   );
 }

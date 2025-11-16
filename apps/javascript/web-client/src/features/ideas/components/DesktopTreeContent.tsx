@@ -7,10 +7,19 @@ import { arraysEqual } from "../utils/treeNodes";
 import { detectTreeMutation, type TreeMutation } from "./treeMutations";
 
 export interface DesktopTreeContentProps {
-  onReorderNode: (nodeId: string, direction: ReorderDirection) => Promise<void>;
+  onReorderNode: (
+    nodeId: string,
+    direction: ReorderDirection,
+    targetIndex: number,
+  ) => Promise<void>;
   onMoveNode: (nodeId: string, newParentId: string | null) => Promise<void>;
   onDeleteNode: (nodeId: string) => Promise<void>;
-  onCreateIdea: (parentId: string | null, title: string) => Promise<IdeaNodeView>;
+  onCreateIdea: (
+    parentId: string | null,
+    title: string,
+    afterId?: string | null,
+  ) => Promise<IdeaNodeView>;
+  onRenameNode: (nodeId: string, title: string) => Promise<void>;
   initialExpandedIds: string[];
   initialSelectedId: string | null;
   initialStateKey: string;
@@ -28,6 +37,7 @@ export function DesktopTreeContent({
   onMoveNode,
   onDeleteNode,
   onCreateIdea,
+  onRenameNode,
   initialExpandedIds,
   initialSelectedId,
   initialStateKey,
@@ -87,7 +97,7 @@ export function DesktopTreeContent({
 
     void (async () => {
       try {
-        const created = await onCreateIdea(parentId, title);
+        const created = await onCreateIdea(parentId, title, pending.afterId ?? null);
         const finalId = created.id ?? pending.tempId;
         actions.confirmInlineCreate({
           tempId: pending.tempId,
@@ -121,9 +131,11 @@ export function DesktopTreeContent({
         if (mutation.type === "move") {
           await onMoveNode(mutation.nodeId, mutation.newParentId);
         } else if (mutation.type === "reorder") {
-          await onReorderNode(mutation.nodeId, mutation.direction);
+          await onReorderNode(mutation.nodeId, mutation.direction, mutation.targetIndex);
         } else if (mutation.type === "delete") {
           await onDeleteNode(mutation.nodeId);
+        } else if (mutation.type === "rename") {
+          await onRenameNode(mutation.nodeId, mutation.title);
         }
       } catch (err) {
         console.error("[DesktopIdeasTree] failed to sync tree mutation", err);
@@ -138,20 +150,20 @@ export function DesktopTreeContent({
       cancelled = true;
       syncingTreeMutationRef.current = false;
     };
-  }, [stateNodes, settingsHydrated, onMoveNode, onReorderNode, onDeleteNode]);
+  }, [stateNodes, settingsHydrated, onMoveNode, onReorderNode, onDeleteNode, onRenameNode]);
 
   const hasTree = tree.length > 0;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div >
       {hasTree ? (
-        <div className="rounded-[32px] border border-slate-800/70 bg-slate-950/40 p-1 shadow-lg shadow-slate-900/40">
+        <div >
           <ThemedTreeView
-            className="w-full rounded-[28px]"
+            // className="w-full rounded-[28px]"
             style={{
-              minHeight: "auto",
-              background: "radial-gradient(circle at top, rgba(56,189,248,0.14), rgba(2,6,23,0.92))",
-              padding: "24px 28px",
+              // minHeight: "auto",
+              // background: "radial-gradient(circle at top, rgba(56,189,248,0.14), rgba(2,6,23,0.92))",
+              // padding: "24px 28px",
             }}
           />
         </div>

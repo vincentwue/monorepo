@@ -12,11 +12,13 @@ export interface UseIdeasTreeResult {
   createChild: (
     parentId: string | null,
     title: string,
-    note?: string
+    note?: string,
+    afterId?: string | null
   ) => Promise<IdeaNodeView>;
   moveNode: (nodeId: string, newParentId: string | null) => Promise<void>;
-  reorderNode: (nodeId: string, direction: ReorderDirection) => Promise<void>;
+  reorderNode: (nodeId: string, direction: ReorderDirection, targetIndex: number) => Promise<void>;
   deleteNode: (nodeId: string) => Promise<void>;
+  renameNode: (nodeId: string, title: string) => Promise<void>;
 }
 
 /**
@@ -96,9 +98,9 @@ export function useIdeasTree(
   }, [fetchNodes]);
 
   const createChild = useCallback(
-    async (pId: string | null, title: string, note?: string) => {
+    async (pId: string | null, title: string, note?: string, afterId?: string | null) => {
       try {
-        const created = await client.createChild(pId, title, note);
+        const created = await client.createChild(pId, title, note, afterId);
         await refresh();
         return created;
       } catch (err: any) {
@@ -125,9 +127,9 @@ export function useIdeasTree(
   );
 
   const reorderNode = useCallback(
-    async (nodeId: string, direction: ReorderDirection) => {
+    async (nodeId: string, direction: ReorderDirection, targetIndex: number) => {
       try {
-        await client.reorderNode(nodeId, direction);
+        await client.reorderNode(nodeId, direction, targetIndex);
         await refresh();
       } catch (err: any) {
         console.error("Failed to reorder idea node", err);
@@ -152,6 +154,20 @@ export function useIdeasTree(
     [client, refresh]
   );
 
+  const renameNode = useCallback(
+    async (nodeId: string, title: string) => {
+      try {
+        await client.renameNode(nodeId, title);
+        await refresh();
+      } catch (err: any) {
+        console.error("Failed to rename idea node", err);
+        setError(err?.message ?? "Failed to rename idea");
+        throw err;
+      }
+    },
+    [client, refresh]
+  );
+
   return {
     nodes,
     loading,
@@ -161,5 +177,6 @@ export function useIdeasTree(
     moveNode,
     reorderNode,
     deleteNode,
+    renameNode,
   };
 }

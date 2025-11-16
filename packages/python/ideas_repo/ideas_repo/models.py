@@ -20,6 +20,7 @@ class IdeaCreate(BaseModel):
     """Payload for creating a new idea child node."""
 
     parent_id: Optional[str] = None
+    after_id: Optional[str] = None
     title: str
     note: Optional[str] = None
 

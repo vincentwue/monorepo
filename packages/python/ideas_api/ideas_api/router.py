@@ -12,6 +12,7 @@ from ideas_repo import (
     move_node_for_user,
     reorder_node_for_user,
     delete_node_for_user,
+    update_node_for_user,
 )
 
 from .kratos_client import get_identity
@@ -51,6 +52,7 @@ async def get_tree(identity: dict = Depends(get_identity)):
 @router.post("/children", response_model=IdeaNode)
 async def create_child(
     parent_id: str | None = Query(default=None),
+    after_id: str | None = Query(default=None),
     payload: dict = Body(...),
     identity: dict = Depends(get_identity),
 ):
@@ -66,6 +68,7 @@ async def create_child(
         parent_id=parent_id,
         title=title,
         note=note,
+        after_id=after_id,
     )
 
 
@@ -99,13 +102,14 @@ async def reorder_node(
     user_id: str = identity["id"]
     workspace_id = extract_workspace_id(identity)
     direction: str | None = payload.get("direction")
-    target_rank = payload.get("target_rank")
+    target_index = payload.get("target_index")
     return await reorder_node_for_user(
         workspace_id=workspace_id,
         user_id=user_id,
         node_id=node_id,
         direction=direction,
-        target_rank=target_rank,
+        target_rank=None,
+        target_index=int(target_index) if isinstance(target_index, int) else None,
     )
 
 
@@ -124,3 +128,24 @@ async def delete_node(
         node_id=node_id,
     )
     return Response(status_code=204)
+
+
+@router.patch("/nodes/{node_id}", response_model=IdeaNode)
+async def update_node(
+    node_id: str,
+    payload: dict = Body(...),
+    identity: dict = Depends(get_identity),
+):
+    """Update a node's title or note."""
+
+    user_id: str = identity["id"]
+    workspace_id = extract_workspace_id(identity)
+    title = payload.get("title")
+    note = payload.get("note")
+    return await update_node_for_user(
+        workspace_id=workspace_id,
+        user_id=user_id,
+        node_id=node_id,
+        title=title,
+        note=note,
+    )

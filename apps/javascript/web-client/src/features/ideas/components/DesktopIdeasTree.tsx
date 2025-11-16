@@ -11,16 +11,21 @@ export interface DesktopIdeasTreeProps {
   componentKey: string;
   loading: boolean;
   error: string | null;
-  onReorderNode: (nodeId: string, direction: ReorderDirection) => Promise<void>;
+  onReorderNode: (nodeId: string, direction: ReorderDirection, targetIndex: number) => Promise<void>;
   onMoveNode: (nodeId: string, newParentId: string | null) => Promise<void>;
   onDeleteNode: (nodeId: string) => Promise<void>;
+  onRenameNode: (nodeId: string, title: string) => Promise<void>;
   initialExpandedIds: string[];
   initialSelectedId: string | null;
   initialStateKey: string;
   onExpandedChange: (ids: string[]) => void;
   onSelectionChange: (selectedId: string | null) => void;
   settingsHydrated: boolean;
-  onCreateIdea: (parentId: string | null, title: string) => Promise<IdeaNodeView>;
+  onCreateIdea: (
+    parentId: string | null,
+    title: string,
+    afterId?: string | null,
+  ) => Promise<IdeaNodeView>;
 }
 
 export function DesktopIdeasTree({
@@ -31,6 +36,7 @@ export function DesktopIdeasTree({
   onReorderNode,
   onMoveNode,
   onDeleteNode,
+  onRenameNode,
   initialExpandedIds,
   initialSelectedId,
   initialStateKey,
@@ -41,7 +47,7 @@ export function DesktopIdeasTree({
 }: DesktopIdeasTreeProps) {
   return (
     <div className="flex h-full w-full flex-col p-3">
-      {loading && <p className="mb-2 text-xs text-slate-400">Loading tree...</p>}
+      {/* {loading && <p className="mb-2 text-xs text-slate-400">Loading tree...</p>} */}
       {error && <p className="mb-2 text-xs text-red-400">{error}</p>}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <TreeProvider
@@ -54,6 +60,7 @@ export function DesktopIdeasTree({
               onReorderNode={onReorderNode}
               onMoveNode={onMoveNode}
               onDeleteNode={onDeleteNode}
+              onRenameNode={onRenameNode}
               onCreateIdea={onCreateIdea}
               initialExpandedIds={initialExpandedIds}
               initialSelectedId={initialSelectedId}

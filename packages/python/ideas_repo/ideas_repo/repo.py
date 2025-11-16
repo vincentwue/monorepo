@@ -185,12 +185,68 @@ async def _next_rank(workspace_id: str, parent_id: Optional[str]) -> float:
     return 0.0
 
 
+async def _rewrite_sibling_ranks(workspace_id: str, siblings: list[dict]) -> None:
+    """Rewrite ranks for the provided sibling list to match their order."""
+
+    collection = _collection()
+    for index, doc in enumerate(siblings):
+        rank = float(index)
+        await collection.update_one(
+            {"_id": doc["_id"], "workspace_id": workspace_id},
+            {"$set": {"rank": rank}},
+        )
+        doc["rank"] = rank
+
+
+async def _insertion_rank(
+    workspace_id: str,
+    parent_id: Optional[str],
+    after_id: Optional[str],
+) -> Optional[float]:
+    """
+    Best-effort rank calculation that attempts to insert after a sibling.
+
+    Returns None if after_id is not provided or not part of the sibling set.
+    """
+
+    if not after_id:
+        return None
+
+    collection = _collection()
+    cursor = (
+        collection.find({"parent_id": parent_id, "workspace_id": workspace_id})
+        .sort("rank", 1)
+    )
+    siblings = [doc async for doc in cursor]
+    if not siblings:
+        return None
+
+    index = next(
+        (idx for idx, doc in enumerate(siblings) if str(doc.get("_id")) == after_id),
+        None,
+    )
+    if index is None:
+        return None
+
+    current_rank = float(siblings[index].get("rank", float(index)))
+    # If inserting after the last sibling, append after it.
+    if index == len(siblings) - 1:
+        return current_rank + 1.0
+
+    next_sibling = siblings[index + 1]
+    next_rank = float(next_sibling.get("rank", float(index + 1)))
+    if next_rank <= current_rank:
+        next_rank = current_rank + 1.0
+    return (current_rank + next_rank) / 2.0
+
+
 async def create_child_for_user(
     workspace_id: str,
     user_id: str,
     parent_id: Optional[str],
     title: str,
     note: Optional[str] = None,
+    after_id: Optional[str] = None,
 ) -> IdeaNode:
     """
     Create a child node and append it to the end of the sibling list.
@@ -216,7 +272,9 @@ async def create_child_for_user(
         parent_id = str(root_doc["_id"])
 
     collection = _collection()
-    rank = await _next_rank(workspace_id, parent_id)
+    rank = await _insertion_rank(workspace_id, parent_id, after_id)
+    if rank is None:
+        rank = await _next_rank(workspace_id, parent_id)
     node_id = uuid4().hex
     doc = {
         "_id": node_id,
@@ -302,8 +360,9 @@ async def reorder_node_for_user(
     node_id: str,
     direction: Optional[str] = None,
     target_rank: Optional[float] = None,
+    target_index: Optional[int] = None,
 ) -> IdeaNode:
-    """Reorder a node within its sibling set (MVP supports up/down)."""
+    """Reorder a node within its sibling set (supports arbitrary placement)."""
 
     _ = target_rank  # reserved for future precise rank updates
     node = await _fetch_node_for_user(workspace_id, user_id, node_id)
@@ -324,15 +383,24 @@ async def reorder_node_for_user(
         user_id=user_id,
     )
 
-    if direction not in {"up", "down"}:
-        return _doc_to_model(node)
-
     collection = _collection()
     cursor = (
         collection.find({"parent_id": parent_id, "workspace_id": workspace_id})
         .sort("rank", 1)
     )
     siblings = [doc async for doc in cursor]
+
+    if target_index is not None:
+        filtered = [doc for doc in siblings if doc["_id"] != node_id]
+        insert_at = max(0, min(len(filtered), int(target_index)))
+        filtered.insert(insert_at, node)
+        await _rewrite_sibling_ranks(workspace_id, filtered)
+        node = filtered[insert_at]
+        return _doc_to_model(node)
+
+    if direction not in {"up", "down"}:
+        return _doc_to_model(node)
+
     index = next((idx for idx, doc in enumerate(siblings) if doc["_id"] == node_id), None)
     if index is None:
         raise IdeaNotFoundError(f"Node {node_id} not found among siblings")
@@ -411,3 +479,42 @@ async def delete_node_for_user(
     # NOTE: We currently do not clean up per-node Keto tuples here.
     # For the MVP (root-based checks), this is acceptable. We can add
     # a keto_delete helper later if needed.
+
+
+async def update_node_for_user(
+    workspace_id: str,
+    user_id: str,
+    node_id: str,
+    *,
+    title: Optional[str] = None,
+    note: Optional[str] = None,
+) -> IdeaNode:
+    """Update node metadata (title/note) if caller has access."""
+
+    node = await _fetch_node_for_user(workspace_id, user_id, node_id)
+
+    await _ensure_root_permissions(user_id, workspace_id)
+    await require_user_permission(
+        namespace=IDEAS_NAMESPACE,
+        kind=_KIND,
+        resource_id=_resource_id(workspace_id, None),
+        relation="editor",
+        user_id=user_id,
+    )
+
+    updates: dict[str, Optional[str]] = {}
+    if title is not None:
+        updates["title"] = title
+    if note is not None:
+        updates["note"] = note
+
+    if not updates:
+        return _doc_to_model(node)
+
+    collection = _collection()
+    await collection.update_one(
+        {"_id": node_id, "workspace_id": workspace_id},
+        {"$set": updates},
+    )
+    node.update(updates)
+    return _doc_to_model(node)

@@ -10,6 +10,7 @@ from .repo import (
     move_node_for_user,
     reorder_node_for_user,
     delete_node_for_user,
+    update_node_for_user,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "move_node_for_user",
     "reorder_node_for_user",
     "delete_node_for_user",
+    "update_node_for_user",
 ]
