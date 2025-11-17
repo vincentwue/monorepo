@@ -1,0 +1,1 @@
+export { nativeTheme } from "./theme";

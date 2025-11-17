@@ -1,5 +1,5 @@
 import { Login, useSession } from "@monorepo/auth"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useSearchParams } from "react-router-dom"
 import { LayoutShell } from "../components/LayoutShell"
 
@@ -9,50 +9,90 @@ export const LoginPage = () => {
     const [searchParams] = useSearchParams()
     const { session, loading } = useSession()
 
+    const hasFlow = useMemo(() => searchParams.has("flow"), [searchParams])
+    const hasReturnTo = useMemo(() => searchParams.has("return_to"), [searchParams])
+    const returnTo = useMemo(() => searchParams.get("return_to"), [searchParams])
+
+    // Only auto-redirect when:
+    // - session exists AND
+    // - this login was initiated with `?return_to=...`
     useEffect(() => {
-        if (loading) return
-        if (!session) return
+        if (loading || !session || !hasReturnTo) return
+        if (!returnTo) return
 
-        // 1) Try to use ?return_to= from the URL
-        const returnTo = searchParams.get("return_to")
+        try {
+            const targetUrl = new URL(returnTo, window.location.origin)
 
-        if (returnTo) {
-            try {
-                const url = new URL(returnTo, window.location.origin)
-
-                // Only allow safe origins (same origin or the configured success redirect target)
-                const allowedOrigins = [window.location.origin]
-                if (DEFAULT_SUCCESS_REDIRECT) {
-                    try {
-                        const origin = new URL(DEFAULT_SUCCESS_REDIRECT).origin
-                        if (!allowedOrigins.includes(origin)) {
-                            allowedOrigins.push(origin)
-                        }
-                    } catch {
-                        console.warn("Invalid VITE_AUTH_SUCCESS_REDIRECT value provided.")
+            // Only allow safe origins
+            const allowedOrigins = [window.location.origin]
+            if (DEFAULT_SUCCESS_REDIRECT) {
+                try {
+                    const envOrigin = new URL(DEFAULT_SUCCESS_REDIRECT).origin
+                    if (!allowedOrigins.includes(envOrigin)) {
+                        allowedOrigins.push(envOrigin)
                     }
+                } catch {
+                    console.warn("Invalid VITE_AUTH_SUCCESS_REDIRECT value:", DEFAULT_SUCCESS_REDIRECT)
                 }
-
-                if (allowedOrigins.includes(url.origin)) {
-                    window.location.href = url.toString()
-                    return
-                }
-            } catch {
-                // Invalid URL in return_to → ignore and fall back
             }
-        }
 
-        // 2) Fallback to env-based success redirect
-        if (!DEFAULT_SUCCESS_REDIRECT) {
-            console.error("Missing VITE_AUTH_SUCCESS_REDIRECT environment variable.")
-            return
+            if (!allowedOrigins.includes(targetUrl.origin)) {
+                console.warn("Blocked return_to with disallowed origin:", targetUrl.origin)
+                if (DEFAULT_SUCCESS_REDIRECT) {
+                    window.location.href = DEFAULT_SUCCESS_REDIRECT
+                }
+                return
+            }
+
+            window.location.href = targetUrl.toString()
+        } catch {
+            console.warn("Invalid return_to URL, staying on portal.")
         }
-        window.location.href = DEFAULT_SUCCESS_REDIRECT
-    }, [session, loading, searchParams])
+    }, [session, loading, hasReturnTo, returnTo])
+
+    // If we are logged in and this is a "direct visit" (no return_to),
+    // show a small portal instead of the login flow.
+    const showPortal = !loading && !!session && !hasReturnTo
+    const showRedirectNotice = !loading && !!session && hasReturnTo
+    const showSessionCheck = loading && !hasFlow
 
     return (
         <LayoutShell>
-            <Login />
+            {showPortal ? (
+                <div className="panel">
+                    <h1>You're already logged in</h1>
+                    <p className="mt-2">
+                        Your identity session is active. Choose an app or sign out.
+                    </p>
+
+                    <pre className="mt-4">
+                        {JSON.stringify((session as any).identity ?? session, null, 2)}
+                    </pre>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                        {DEFAULT_SUCCESS_REDIRECT && (
+                            <a className="cta-link" href={DEFAULT_SUCCESS_REDIRECT}>
+                                Go to main app
+                            </a>
+                        )}
+                        <a className="cta-link" href="/logout">
+                            Log out
+                        </a>
+                    </div>
+                </div>
+            ) : showRedirectNotice ? (
+                <div className="panel">
+                    <h1>Welcome back</h1>
+                    <p className="mt-2">We found an active session. Redirecting you shortly...</p>
+                </div>
+            ) : showSessionCheck ? (
+                <div className="panel">
+                    <h1>Checking session...</h1>
+                    <p className="mt-2">Hold on while we look up your Kratos session.</p>
+                </div>
+            ) : (
+                <Login />
+            )}
         </LayoutShell>
     )
 }

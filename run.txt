@@ -14,3 +14,10 @@ uvicorn core_server.main:app --host 0.0.0.0 --port 8000
 
 cd apps/auth-ui
 pnpm run dev
+
+cd apps/javascript/web-client
+pnpm run dev
+
+cd D:\git_repos\monorepo\apps\react-native-ideas
+$env:EXPO_OFFLINE = "1"
+pnpm expo start --lan

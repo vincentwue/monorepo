@@ -1,0 +1,15 @@
+{
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": {
+        "composite": false,
+        "declaration": false,
+        "noEmit": true,
+        "strict": true,
+        "moduleResolution": "bundler",
+        "module": "esnext",
+        "target": "es2020"
+    },
+    "include": [
+        "src"
+    ]
+}

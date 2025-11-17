@@ -10,7 +10,14 @@ export function LocalIdeasTreePage() {
     const isMobile = useMediaQuery("(max-width: 768px)");
 
     // Start with an empty local tree or some demo data
-    const [nodes, setNodes] = useState<IdeaNodeView[]>([]);
+    const [nodes, setNodes] = useState<IdeaNodeView[]>([
+        { id: "ideas", parentId: null, title: "Ideas backlog" },
+        { id: "marketing", parentId: "ideas", title: "Marketing" },
+        { id: "research", parentId: "ideas", title: "User research" },
+        { id: "ai-companion", parentId: "ideas", title: "AI companion" },
+        { id: "launch-plan", parentId: "marketing", title: "Launch plan" },
+        { id: "email-drips", parentId: "marketing", title: "Email drips" },
+    ]);
 
     const providerNodes = useMemo(() => mapToProviderNodes(nodes), [nodes]);
     const mobileNodes = useMemo(() => mapToMobileNodes(nodes), [nodes]);

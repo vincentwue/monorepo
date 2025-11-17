@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { TopBarLayout } from "@monorepo/topbar-layout";
 import { FocusOverlay } from "./components/FocusOverlay";
 import { IdeasTreePage } from "./features/ideas/IdeasTreePage";
+import { LocalIdeasTreePage } from "./features/ideas/LocalIDeasTreePage";
 
 const AUTH_UI_BASE_URL = import.meta.env.VITE_AUTH_UI_BASE_URL ?? "";
 const APP_BASE_URL = import.meta.env.VITE_APP_BASE_URL ?? "";
@@ -39,7 +40,7 @@ export default function App() {
               <RequireAuth
                 skipRedirect   // do not auto-redirect away
                 // redirectTo={loginUrl}
-                unauthenticatedFallback={<div>login here</div>}
+                unauthenticatedFallback={<LocalIdeasTreePage />}
               >
                 <IdeasTreePage />
               </RequireAuth>

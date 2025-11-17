@@ -8,6 +8,16 @@
       "@monorepo/design-system": [
         "packages/javascript/design-system/src/styles.css"
       ],
+      "@monorepo/design-system/native": [
+        "packages/javascript/design-system/dist/native/index.d.ts",
+        "packages/javascript/design-system/dist/native/index.js",
+        "packages/javascript/design-system/src/native/index.ts"
+      ],
+      "@monorepo/design-system/tokens": [
+        "packages/javascript/design-system/dist/tokens.d.ts",
+        "packages/javascript/design-system/dist/tokens.js",
+        "packages/javascript/design-system/src/tokens.ts"
+      ],
       "@monorepo/design-system/*": [
         "packages/javascript/design-system/src/*"
       ],
