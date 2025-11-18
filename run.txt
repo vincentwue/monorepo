@@ -18,6 +18,5 @@ pnpm run dev
 cd apps/javascript/web-client
 pnpm run dev
 
-cd D:\git_repos\monorepo\apps\react-native-ideas
 pnpm --filter react-native-ideas start --android
 
