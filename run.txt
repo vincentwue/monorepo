@@ -19,5 +19,5 @@ cd apps/javascript/web-client
 pnpm run dev
 
 cd D:\git_repos\monorepo\apps\react-native-ideas
-$env:EXPO_OFFLINE = "1"
-pnpm expo start --lan
+ expo start --android
+
