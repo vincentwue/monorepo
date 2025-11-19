@@ -79,19 +79,28 @@ def gather_reference_library(refs_dir: Path):
                 composite = data
 
             composite = fade(composite.copy(), ms=FADE_MS * 2, fs=fs)
-            refs[kind].append({"id": wav.name, "samples": composite})
+            refs[kind].append(
+                {
+                    "id": wav.name,
+                    "samples": composite,
+                    "mtime": wav.stat().st_mtime,
+                }
+            )
         except Exception as e:
             print(f"[warn] Failed to load {wav}: {e}")
 
-    # --- keep only the newest start/end ref ---
-    def _keep_latest(ref_list):
+    # --- keep the most recent N start/end refs ---
+    def _keep_recent(ref_list, limit=40):
         if not ref_list:
             return ref_list
-        ref_list.sort(key=lambda r: r["id"])
-        return [ref_list[-1]]
+        ref_list.sort(key=lambda r: r.get("mtime", 0))
+        trimmed = ref_list[-limit:]
+        for entry in trimmed:
+            entry.pop("mtime", None)
+        return trimmed
 
-    refs["start"] = _keep_latest(refs["start"])
-    refs["end"] = _keep_latest(refs["end"])
+    refs["start"] = _keep_recent(refs["start"])
+    refs["end"] = _keep_recent(refs["end"])
 
     # --- add fallback Barker tones ---
     for kind, freq in (("start", 3200.0), ("end", 2400.0)):

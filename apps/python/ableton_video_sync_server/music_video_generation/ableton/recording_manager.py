@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, math, threading, time, os, wave
+import json, math, threading, time, os, wave, shutil
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -409,6 +409,21 @@ class RecordingManager:
                     self._stop_cue_path = str(stop_path)
                 except Exception:
                     pass
+            # Guarantee unique cue file references even if playback was disabled
+            if self._start_cue_path:
+                self._start_cue_path = self._ensure_unique_cue_reference(
+                    self._start_cue_path,
+                    "start",
+                    cue_dir,
+                    timestamp=self._t0_wall,
+                )
+            if self._stop_cue_path:
+                self._stop_cue_path = self._ensure_unique_cue_reference(
+                    self._stop_cue_path,
+                    "stop_unique",
+                    cue_dir,
+                    timestamp=self._t1_wall,
+                )
 
             name = str(getattr(self.song, "name", "") or "")
             path = str(getattr(self.song, "file_path", "") or "")
@@ -483,6 +498,21 @@ class RecordingManager:
         base = Path(folder) / "ableton" / "cue_refs" if folder else self._default_cue_dir
         base.mkdir(parents=True, exist_ok=True)
         return base
+
+    def _ensure_unique_cue_reference(self, cue_path: str, prefix: str, cue_dir: Path, *, timestamp: float | None = None) -> str:
+        if not cue_path:
+            return cue_path
+        path = Path(cue_path)
+        if not path.exists():
+            return cue_path
+        name = path.name.lower()
+        if name.startswith(f"{prefix}_"):
+            return str(path)
+        suffix = self._timestamp_suffix(timestamp or time.time())
+        dst = cue_dir / f"{prefix}_{suffix}.wav"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, dst)
+        return str(dst)
 
     def _save_stereo_pcm_wav(self, path: str, pcm_bytes: bytes, samplerate: int = 48000) -> None:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)

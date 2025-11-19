@@ -11,6 +11,7 @@ from music_video_generation.ableton.recording_state import RecordingStateStore
 from music_video_generation.ableton.connection_service import AbletonConnectionService
 from music_video_generation.ableton.recording_runtime import start_recording_runtime, stop_recording_runtime
 from music_video_generation.postprocessing.postprocess_service import PostprocessService
+from music_video_generation.postprocessing.align_service import FootageAlignService
 
 app = FastAPI(title="Ableton Video Sync Server", version="0.1.0")
 app.add_middleware(
@@ -28,6 +29,7 @@ recording_store = RecordingStateStore()
 ableton_connection_service = AbletonConnectionService()
 start_recording_runtime()
 postprocess_service = PostprocessService()
+align_service = FootageAlignService()
 
 
 
@@ -92,6 +94,14 @@ class IngestPreviewRequest(BaseModel):
     project_path: str = Field(..., description="Absolute path to the active project.")
     device_ids: list[str] = Field(default_factory=list)
     only_today: bool = True
+
+
+class AlignFootageRequest(BaseModel):
+    project_path: str = Field(..., description="Absolute path to the active project.")
+    audio_path: str | None = Field(
+        default=None,
+        description="Optional override for the soundtrack to align against.",
+    )
 
 
 @app.get("/health")
@@ -307,6 +317,24 @@ def postprocess_run(payload: PostprocessRunRequest) -> dict:
             threshold=payload.threshold,
             min_gap_s=payload.min_gap_s,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/align/footage")
+def align_footage(payload: AlignFootageRequest) -> dict:
+    try:
+        return align_service.align(payload.project_path, audio_path=payload.audio_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/align/state")
+def align_state(project_path: str = Query(..., description="Absolute path to the active project.")) -> dict:
+    try:
+        return align_service.state(project_path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

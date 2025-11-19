@@ -13,6 +13,29 @@ type PostprocessPanelProps = {
 const DEFAULT_THRESHOLD = 0.6
 const DEFAULT_MIN_GAP = 0.25
 
+const CUE_LEGEND = [
+  {
+    key: 'start-primary',
+    label: 'Primary start cue',
+    description: 'Barker/standard cue that should always be audible.',
+  },
+  {
+    key: 'start-secondary',
+    label: 'Secondary start cue',
+    description: 'Project-specific cue to link footage with recordings.',
+  },
+  {
+    key: 'end-primary',
+    label: 'Primary end cue',
+    description: 'Barker/standard cue near the stop marker.',
+  },
+  {
+    key: 'end-secondary',
+    label: 'Secondary end cue',
+    description: 'Project-specific stop cue to confirm the take.',
+  },
+]
+
 const formatDuration = (value?: number | null) => {
   if (!value && value !== 0) return '—'
   const minutes = Math.floor(value / 60)
@@ -28,6 +51,30 @@ const formatDate = (value?: string | null) => {
 }
 
 const toPercentage = (value: number) => Math.min(100, Math.max(0, value))
+
+type CueSummary = {
+  primary?: boolean
+  secondary?: boolean
+}
+
+type CueStatusProps = {
+  label: string
+  summary?: CueSummary
+}
+
+function CueStatus({ label, summary }: CueStatusProps) {
+  const hasPrimary = Boolean(summary?.primary)
+  const hasSecondary = Boolean(summary?.secondary)
+  return (
+    <div className="cue-status">
+      <span className="cue-status__label">{label}</span>
+      <span className={`cue-dot cue-dot--${label.toLowerCase()}-primary${hasPrimary ? '' : ' cue-dot--missing'}`} />
+      <span className="cue-status__text">{hasPrimary ? 'Primary' : 'No primary'}</span>
+      <span className={`cue-dot cue-dot--${label.toLowerCase()}-secondary${hasSecondary ? '' : ' cue-dot--missing'}`} />
+      <span className="cue-status__text">{hasSecondary ? 'Secondary' : 'No secondary'}</span>
+    </div>
+  )
+}
 
 export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
   const [state, setState] = useState<PostprocessState | null>(null)
@@ -177,6 +224,12 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
           </button>
         </div>
       </div>
+      <p className="postprocess-settings__note">
+        <strong>Threshold</strong> controls how strong a cue match must be (lower it to catch faint cues, raise it to
+        avoid false positives). <strong>Minimum gap</strong> enforces the spacing between hits so echoes don’t create
+        duplicate segments. If you regularly need finer control, we can surface extra parameters such as minimum segment
+        length or frequency-weighted matching.
+      </p>
       <div className="postprocess-settings">
         <div className="postprocess-settings__field">
           <label htmlFor="threshold-input">
@@ -266,6 +319,19 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
       )}
 
       <div className="postprocess-timeline">
+        {mediaEntries.length > 0 && (
+          <div className="cue-legend">
+            {CUE_LEGEND.map((item) => (
+              <div key={item.key} className="cue-legend__item">
+                <span className={`cue-dot cue-dot--${item.key}`} />
+                <div>
+                  <strong>{item.label}</strong>
+                  <small>{item.description}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {mediaEntries.length === 0 && <p className="empty-state">No footage analyzed yet.</p>}
         {mediaEntries.map((entry) => {
           const duration = entry.duration_s || 1
@@ -303,6 +369,10 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
                     ? entry.track_names.join(', ')
                     : entry.cue_refs_used.join(', ') || 'No cues detected'}
                 </span>
+              </div>
+              <div className="timeline-cue-status">
+                <CueStatus label="Start" summary={entry.cue_detection?.start} />
+                <CueStatus label="End" summary={entry.cue_detection?.end} />
               </div>
             </div>
           )

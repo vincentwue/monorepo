@@ -264,6 +264,30 @@ class PostprocessService:
 
         _attach_tracks(matches["start"])
         _attach_tracks(matches["end"])
+
+        def _classify_hit(ref_id: str, kind: str) -> str:
+            rid = (ref_id or "").lower()
+            if rid.startswith("barker"):
+                return "primary"
+            if kind == "start" and rid in {"start.wav", "start"}:
+                return "primary"
+            if kind == "end" and rid in {"end.wav", "end"}:
+                return "primary"
+            return "secondary"
+
+        cue_summary = {
+            "start": {"primary": False, "secondary": False},
+            "end": {"primary": False, "secondary": False},
+        }
+        for hit in matches["start"]:
+            tier = _classify_hit(hit.get("ref_id", ""), "start")
+            hit["cue_tier"] = tier
+            cue_summary["start"][tier] = True
+        for hit in matches["end"]:
+            tier = _classify_hit(hit.get("ref_id", ""), "end")
+            hit["cue_tier"] = tier
+            cue_summary["end"][tier] = True
+
         segments = build_segments(matches["start"], matches["end"], duration)
         cue_refs = sorted({hit["ref_id"] for hit in matches["start"] + matches["end"]})
         track_names = sorted({name for hit in matches["start"] + matches["end"] for name in hit.get("track_names", [])})
@@ -291,6 +315,7 @@ class PostprocessService:
             "top_score": top_score,
             "elapsed_s": time.perf_counter() - t0,
             "track_names": track_names,
+            "cue_detection": cue_summary,
         }
 
     def _build_payload(self, root: Path, media: List[Dict], params: Dict[str, float]) -> Dict:

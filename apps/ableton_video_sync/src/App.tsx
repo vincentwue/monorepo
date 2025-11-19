@@ -5,6 +5,7 @@ import { CueSpeakerPanel } from './ingest/CueSpeakerPanel'
 import { AbletonConnectionPanel } from './ableton/AbletonConnectionPanel'
 import { RecordPanel } from './record/RecordPanel'
 import { PostprocessPanel } from './postprocess/PostprocessPanel'
+import { AlignFootagePanel } from './align/AlignFootagePanel'
 import './App.css'
 
 type AppSettings = {
@@ -48,6 +49,7 @@ const TABS = [
   { id: 'abletonConnection', label: 'Ableton connection' },
   { id: 'record', label: 'Record' },
   { id: 'postprocess', label: 'Postprocess footage' },
+  { id: 'align', label: 'Align footage' },
   { id: 'footage', label: 'Footage' },
   { id: 'renders', label: 'Renders' },
 ]
@@ -380,6 +382,8 @@ function App() {
           <RecordPanel activeProjectPath={activeProjectPath} />
         ) : activeTab === 'postprocess' ? (
           <PostprocessPanel activeProjectPath={activeProjectPath} />
+        ) : activeTab === 'align' ? (
+          <AlignFootagePanel activeProjectPath={activeProjectPath} />
         ) : activeTab === 'devices' ? (
           <DevicesPanel
             mainFolder={mainFolder}

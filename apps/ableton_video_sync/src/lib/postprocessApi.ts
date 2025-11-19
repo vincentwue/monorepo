@@ -13,6 +13,12 @@ export type PostprocessHit = {
   score: number
   ref_id: string
   track_names?: string[]
+  cue_tier?: 'primary' | 'secondary'
+}
+
+export type CueDetectionSummary = {
+  primary: boolean
+  secondary: boolean
 }
 
 export type PostprocessMediaEntry = {
@@ -28,6 +34,10 @@ export type PostprocessMediaEntry = {
   top_score?: number | null
   elapsed_s?: number
   track_names?: string[]
+  cue_detection?: {
+    start: CueDetectionSummary
+    end: CueDetectionSummary
+  }
 }
 
 export type PostprocessSummary = {
