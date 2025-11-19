@@ -1,66 +1,54 @@
 import { INGEST_API_BASE_URL } from '../config/constants'
 
-export type PostprocessSegment = {
-  index: number
-  start_time_s: number
-  end_time_s?: number | null
-  duration_s?: number | null
-  edge_case?: string | null
-}
-
-export type PostprocessHit = {
+export type PrimaryCueHit = {
   time_s: number
   score: number
-  ref_id: string
-  track_names?: string[]
-  cue_tier?: 'primary' | 'secondary'
+  ref_id?: string
 }
 
-export type CueDetectionSummary = {
-  primary: boolean
-  secondary: boolean
+export type PrimaryCuePair = {
+  index: number
+  status: 'complete' | 'missing_start' | 'missing_end'
+  start_anchor?: PrimaryCueHit | null
+  start_secondary_hits?: PrimaryCueHit[]
+  end_anchor?: PrimaryCueHit | null
+  end_secondary_hits?: PrimaryCueHit[]
+  window_start_s: number
+  window_end_s?: number | null
 }
 
-export type PostprocessMediaEntry = {
+export type PrimaryCueMediaEntry = {
   file: string
   relative_path: string
   duration_s: number | null
-  segments: PostprocessSegment[]
-  cue_refs_used: string[]
-  start_hits: PostprocessHit[]
-  end_hits: PostprocessHit[]
-  notes: string[]
-  media_type?: string
-  top_score?: number | null
+  start_hits: PrimaryCueHit[]
+  end_hits: PrimaryCueHit[]
+  pairs: PrimaryCuePair[]
   elapsed_s?: number
-  track_names?: string[]
-  cue_detection?: {
-    start: CueDetectionSummary
-    end: CueDetectionSummary
-  }
+  notes: string[]
 }
 
-export type PostprocessSummary = {
+export type PrimaryCueSummary = {
   files_processed: number
-  segments_detected: number
-  cue_refs_used: string[]
+  pairs_detected: number
+  complete_pairs: number
+  missing_start: number
+  missing_end: number
   errors: string[]
 }
 
-export type PostprocessSettings = {
-  threshold: number
-  min_gap_s: number
-}
-
-export type PostprocessResults = {
+export type PrimaryCueResults = {
   project_path: string
   generated_at: string | null
-  media: PostprocessMediaEntry[]
-  summary: PostprocessSummary
-  settings?: PostprocessSettings
+  media: PrimaryCueMediaEntry[]
+  summary: PrimaryCueSummary
+  settings?: {
+    threshold: number
+    min_gap_s: number
+  }
 }
 
-export type PostprocessJob = {
+export type PrimaryCueJob = {
   status: string
   started_at?: string | null
   completed_at?: string | null
@@ -71,13 +59,13 @@ export type PostprocessJob = {
   error?: string | null
 }
 
-export type PostprocessState = {
+export type PrimaryCueState = {
   project_path: string
-  job?: PostprocessJob | null
-  results: PostprocessResults
+  job?: PrimaryCueJob | null
+  results: PrimaryCueResults
 }
 
-export type PostprocessRunOptions = {
+export type PrimaryCueRunOptions = {
   threshold?: number
   minGapSeconds?: number
   files?: string[]
@@ -94,9 +82,9 @@ async function handle<T>(response: Response): Promise<T> {
         typeof payload?.detail === 'string'
           ? payload.detail
           : JSON.stringify(payload, null, 2)
-      throw new Error(message || 'Postprocess request failed.')
+      throw new Error(message || 'Primary cue request failed.')
     }
-    throw new Error((await response.text()) || 'Postprocess request failed.')
+    throw new Error((await response.text()) || 'Primary cue request failed.')
   }
   if (contentType.includes('application/json')) {
     return (await response.json()) as T
@@ -104,15 +92,15 @@ async function handle<T>(response: Response): Promise<T> {
   return undefined as T
 }
 
-export function fetchPostprocessState(projectPath: string): Promise<PostprocessState> {
+export function fetchPrimaryCueState(projectPath: string): Promise<PrimaryCueState> {
   if (!projectPath) {
     return Promise.reject(new Error('Select an active project first.'))
   }
-  const url = `${API_BASE}/postprocess/state?project_path=${encodeURIComponent(projectPath)}`
+  const url = `${API_BASE}/primary-cues/state?project_path=${encodeURIComponent(projectPath)}`
   return fetch(url).then(handle)
 }
 
-export function runPostprocess(projectPath: string, options?: PostprocessRunOptions): Promise<PostprocessJob> {
+export function runPrimaryCueDetection(projectPath: string, options?: PrimaryCueRunOptions): Promise<PrimaryCueJob> {
   if (!projectPath) {
     return Promise.reject(new Error('Select an active project first.'))
   }
@@ -126,18 +114,18 @@ export function runPostprocess(projectPath: string, options?: PostprocessRunOpti
   if (Array.isArray(options?.files) && options!.files.length > 0) {
     payload.files = options!.files
   }
-  return fetch(`${API_BASE}/postprocess/run`, {
+  return fetch(`${API_BASE}/primary-cues/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   }).then(handle)
 }
 
-export function resetPostprocess(projectPath: string): Promise<PostprocessState> {
+export function resetPrimaryCueDetection(projectPath: string): Promise<PrimaryCueState> {
   if (!projectPath) {
     return Promise.reject(new Error('Select an active project first.'))
   }
-  return fetch(`${API_BASE}/postprocess/reset`, {
+  return fetch(`${API_BASE}/primary-cues/reset`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ project_path: projectPath }),

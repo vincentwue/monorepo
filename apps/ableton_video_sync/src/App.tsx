@@ -1,12 +1,13 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
-import { IngestDetail } from './ingest/IngestDetail'
-import { DevicesPanel } from './ingest/DevicesPanel'
-import { CueSpeakerPanel } from './ingest/CueSpeakerPanel'
 import { AbletonConnectionPanel } from './ableton/AbletonConnectionPanel'
-import { RecordPanel } from './record/RecordPanel'
-import { PostprocessPanel } from './postprocess/PostprocessPanel'
 import { AlignFootagePanel } from './align/AlignFootagePanel'
 import './App.css'
+import { CueSpeakerPanel } from './ingest/CueSpeakerPanel'
+import { DevicesPanel } from './ingest/DevicesPanel'
+import { IngestDetail } from './ingest/IngestDetail'
+import { PostprocessPanel } from './postprocess/PostprocessPanel'
+import { PrimaryCuePanel } from './postprocess/PrimaryCuePanel'
+import { RecordPanel } from './record/RecordPanel'
 
 type AppSettings = {
   mainFolder?: string
@@ -48,6 +49,7 @@ const TABS = [
   { id: 'cueSpeaker', label: 'Cue speaker' },
   { id: 'abletonConnection', label: 'Ableton connection' },
   { id: 'record', label: 'Record' },
+  { id: 'primaryCues', label: 'Primary cue detection' },
   { id: 'postprocess', label: 'Postprocess footage' },
   { id: 'align', label: 'Align footage' },
   { id: 'footage', label: 'Footage' },
@@ -382,6 +384,8 @@ function App() {
           <RecordPanel activeProjectPath={activeProjectPath} />
         ) : activeTab === 'postprocess' ? (
           <PostprocessPanel activeProjectPath={activeProjectPath} />
+        ) : activeTab === 'primaryCues' ? (
+          <PrimaryCuePanel activeProjectPath={activeProjectPath} />
         ) : activeTab === 'align' ? (
           <AlignFootagePanel activeProjectPath={activeProjectPath} />
         ) : activeTab === 'devices' ? (

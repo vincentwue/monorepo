@@ -1,19 +1,23 @@
 from __future__ import annotations
+import sys
+from pathlib import Path
 
+from loguru import logger
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from music_video_generation.video_ingest.ingest_connector import IngestConnector
-from music_video_generation.sound.cue_output_service import CueOutputService
-from music_video_generation.ableton.recording_cue_preview import RecordingCuePreviewer
+from packages.python.ableton_cues import CueOutputService, RecordingCuePreviewer
 from music_video_generation.ableton.recording_state import RecordingStateStore
 from music_video_generation.ableton.connection_service import AbletonConnectionService
 from music_video_generation.ableton.recording_runtime import start_recording_runtime, stop_recording_runtime
 from music_video_generation.postprocessing.postprocess_service import PostprocessService
+from packages.python.ableton_cues.services import PrimaryCueDetectionService
 from music_video_generation.postprocessing.align_service import FootageAlignService
-
+logger.add(sys.stdout, level="INFO")
+logger.info("Server booted")
 app = FastAPI(title="Ableton Video Sync Server", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
@@ -24,13 +28,16 @@ app.add_middleware(
 )
 
 connector = IngestConnector()
-cue_output_service = CueOutputService()
+example_cue = Path(__file__).resolve().parent / "music_video_generation" / "ableton" / "cue_refs" / "start.wav"
+cue_output_service = CueOutputService(example_cue_path=example_cue)
 cue_output_service.apply_saved_preferences()
 recording_store = RecordingStateStore()
-recording_cue_previewer = RecordingCuePreviewer()
+preview_fallback = Path(__file__).resolve().parent / "cue_refs"
+recording_cue_previewer = RecordingCuePreviewer(default_cue_dir=preview_fallback)
 ableton_connection_service = AbletonConnectionService()
 start_recording_runtime()
 postprocess_service = PostprocessService()
+primary_cue_service = PrimaryCueDetectionService()
 align_service = FootageAlignService()
 
 
@@ -105,11 +112,36 @@ class IngestPreviewRequest(BaseModel):
     only_today: bool = True
 
 
+
 class AlignFootageRequest(BaseModel):
     project_path: str = Field(..., description="Absolute path to the active project.")
     audio_path: str | None = Field(
         default=None,
         description="Optional override for the soundtrack to align against.",
+    )
+
+
+class ProjectPathRequest(BaseModel):
+    project_path: str = Field(..., description="Absolute path to the active project.")
+
+
+class PrimaryCueRunRequest(BaseModel):
+    project_path: str = Field(..., description="Absolute path to the active project.")
+    threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Optional override for primary cue threshold (0-1).",
+    )
+    min_gap_s: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=5.0,
+        description="Optional window between primary cue detections.",
+    )
+    files: list[str] | None = Field(
+        default=None,
+        description="Optional subset of media files to scan.",
     )
 
 
@@ -351,6 +383,14 @@ def postprocess_run(payload: PostprocessRunRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/postprocess/reset")
+def postprocess_reset(payload: ProjectPathRequest) -> dict:
+    try:
+        return postprocess_service.reset(payload.project_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/align/footage")
 def align_footage(payload: AlignFootageRequest) -> dict:
     try:
@@ -365,6 +405,34 @@ def align_footage(payload: AlignFootageRequest) -> dict:
 def align_state(project_path: str = Query(..., description="Absolute path to the active project.")) -> dict:
     try:
         return align_service.state(project_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.get("/primary-cues/state")
+def primary_cue_state(project_path: str = Query(..., description="Absolute path to the active project.")) -> dict:
+    try:
+        return primary_cue_service.state(project_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/primary-cues/run")
+def primary_cue_run(payload: PrimaryCueRunRequest) -> dict:
+    try:
+        return primary_cue_service.start(
+            payload.project_path,
+            threshold=payload.threshold,
+            min_gap_s=payload.min_gap_s,
+            files=payload.files,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/primary-cues/reset")
+def primary_cue_reset(payload: ProjectPathRequest) -> dict:
+    try:
+        return primary_cue_service.reset(payload.project_path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

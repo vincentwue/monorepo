@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from loguru import logger
 
 from .audio_utils import has_ffmpeg, extract_audio_48k, read_wav_mono, get_media_duration
-from .cue_detection import gather_reference_library, compute_matches, build_segments
+from packages.python.ableton_cues.detection import gather_reference_library, compute_matches, build_segments
 from .config import THRESHOLD, MIN_GAP_S, FS
 
 MEDIA_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".m4v", ".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg"}
@@ -191,6 +191,18 @@ class PostprocessService:
             "job": job_copy,
             "results": results,
         }
+
+    def reset(self, project_path: str) -> Dict:
+        root = self._resolve_project(project_path)
+        key = str(root)
+        with self._lock:
+            job = self._jobs.get(key)
+            if job and job.get("status") == "running":
+                raise ValueError("Cannot reset while postprocess job is running.")
+        results_path = self._results_path(root)
+        if results_path.exists():
+            results_path.unlink()
+        return self.state(project_path)
 
     # ------------------------------------------------------------------ worker
     def _worker(self, root: Path, job_key: str, params: Dict[str, float], targets: Optional[set[Path]]) -> None:

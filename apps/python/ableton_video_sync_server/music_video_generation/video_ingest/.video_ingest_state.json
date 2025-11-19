@@ -129,7 +129,7 @@
     ]
   },
   "adb:vincent_phone:/storage/emulated/0/DCIM/Camera": {
-    "last_seen": "2025-11-19T13:02:02.594706+01:00",
+    "last_seen": "2025-11-19T16:41:07.027344+01:00",
     "recent": [
       {
         "id": "/storage/emulated/0/DCIM/Camera/PXL_20251118_232848611.TS.mp4",
@@ -185,6 +185,16 @@
         "id": "/storage/emulated/0/DCIM/Camera/PXL_20251119_120100201.TS.mp4",
         "mtime": 1763553660.0,
         "size": 65670998
+      },
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251119_153532087.TS.mp4",
+        "mtime": 1763566560.0,
+        "size": 183035617
+      },
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251119_153731316.TS.mp4",
+        "mtime": 1763566680.0,
+        "size": 188917606
       }
     ]
   }

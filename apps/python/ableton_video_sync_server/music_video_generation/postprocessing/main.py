@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from .config import MONGO_URI, INPUT_PATH, REF_DIR, THRESHOLD, MIN_GAP_S, FS
 from .audio_utils import has_ffmpeg, extract_audio_48k, read_wav_mono, get_media_duration
-from .cue_detection import gather_reference_library, compute_matches, build_segments
+from packages.python.ableton_cues.detection import gather_reference_library, compute_matches, build_segments
 from .mongo_writer import insert_postprocessing_result
 
 # =============================================================

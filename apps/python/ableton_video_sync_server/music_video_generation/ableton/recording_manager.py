@@ -58,7 +58,7 @@ class RecordingManager:
     Singleton that:
        Subscribes to Live record on/off (and count-in) to create AbletonRecording instances.
        Keeps an AbletonRecordingSession per Live Set (by file_path+name).
-       Persists all sessions/recordings to JSON at rup.ableton_recordings_db_path.
+       Persists all sessions/recordings to JSON next to the Ableton project (or home fallback).
        Exposes:
           - add_on_record_end_listener(callable)
           - get_all_recordings() -> List[AbletonRecording]  (for current session)
@@ -78,6 +78,20 @@ class RecordingManager:
         # state
         self.client = LiveClient.get_instance()
         self.song = self.client.get_song()
+        try:
+            prev_cb = getattr(self.client, "on_reconnected", None)
+
+            def _on_reconnected_chain() -> None:
+                if prev_cb:
+                    try:
+                        prev_cb()
+                    except Exception as exc:  # pragma: no cover - defensive
+                        logger.warning(f"Upstream on_reconnected callback failed: {exc}")
+                self._handle_live_reconnected()
+
+            self.client.on_reconnected = _on_reconnected_chain  # type: ignore[attr-defined]
+        except AttributeError:
+            logger.debug("LiveClient does not support on_reconnected callback.")
         self._warned_unsaved_project = False
 
         # callbacks after a recording is captured
@@ -88,7 +102,8 @@ class RecordingManager:
         if project_folder:
             self.db_path = Path(project_folder) / "ableton_recordings_db.json"
         else:
-            self.db_path = Path(rup.ableton_recordings_db_path)
+            fallback = Path.home() / "AbletonVideoSync"
+            self.db_path = fallback / "ableton_recordings_db.json"
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         logger.info("RecordingManager using local DB path: %s", self.db_path)
 
@@ -172,7 +187,23 @@ class RecordingManager:
     def get_current_session(self) -> AbletonRecordingSession:
         """Fetch/create the session for the current Live Set."""
         name = str(getattr(self.song, "name", "") or "")
-        path = str(getattr(self.song, "file_path", "") or "")
+        song_obj = getattr(self, "song", None)
+        if song_obj is None:
+            logger.warning("RecordingManager: Live song unavailable; requesting reconnect.")
+            try:
+                LiveClient.get_instance().request_reconnect()
+            except Exception as exc:
+                logger.error(f"RecordingManager: failed to request reconnect: {exc}")
+            return
+        try:
+            path = str(getattr(song_obj, "file_path", "") or "")
+        except Exception as exc:
+            logger.warning(f"RecordingManager: unable to read Live project path ({exc}); waiting for reconnect.")
+            try:
+                LiveClient.get_instance().request_reconnect()
+            except Exception as inner_exc:
+                logger.error(f"RecordingManager: failed to request reconnect: {inner_exc}")
+            return
         key = (name, path)
 
         with self._lock:
@@ -204,6 +235,24 @@ class RecordingManager:
         else:
             logger.warning("RecordingManager: LiveClient missing on_is_counting_in listener.")
         logger.info("RecordingManager: listeners registered (record_mode, is_counting_in).")
+
+    def _handle_live_reconnected(self) -> None:
+        """Refresh cached song references and re-register listeners after Live reconnects."""
+        logger.info("RecordingManager: LiveClient reported reconnect; refreshing state.")
+        try:
+            self.song = self.client.get_song()
+            self._rec_start_bpm = float(getattr(self.song, "tempo", self._rec_start_bpm))
+            self._ts_num = int(getattr(self.song, "time_signature_numerator", self._ts_num))
+            self._ts_den = int(getattr(self.song, "time_signature_denominator", self._ts_den))
+            self._loop_start_b = float(getattr(self.song, "loop_start", self._loop_start_b))
+            self._loop_len_b = float(getattr(self.song, "loop_length", self._loop_len_b))
+        except Exception as exc:
+            logger.warning(f"RecordingManager: failed to refresh Live song reference after reconnect: {exc}")
+            return
+        try:
+            self._register_live_listeners()
+        except Exception as exc:
+            logger.warning(f"RecordingManager: failed to rebind listeners after reconnect: {exc}")
 
     def _on_count_in(self, s) -> None:
         logger.debug("RecordingManager:_on_count_in triggered (counting_in=%s)", getattr(s, "is_counting_in", None))

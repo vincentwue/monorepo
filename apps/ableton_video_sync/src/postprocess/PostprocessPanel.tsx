@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   fetchPostprocessState,
+  resetPostprocess,
   runPostprocess,
   type PostprocessState,
 } from '../lib/postprocessApi'
@@ -81,6 +82,7 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
   const [loading, setLoading] = useState(false)
   const [running, setRunning] = useState(false)
   const [reprocessing, setReprocessing] = useState<string | null>(null)
+  const [resetting, setResetting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [settingsError, setSettingsError] = useState<string | null>(null)
@@ -181,6 +183,25 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
     }
   }
 
+  const handleResetResults = async () => {
+    if (!activeProjectPath || resetting) {
+      return
+    }
+    setResetting(true)
+    setMessage(null)
+    try {
+      await resetPostprocess(activeProjectPath)
+      setError(null)
+      setMessage('Postprocess results cleared.')
+      loadState({ silent: true })
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : 'Failed to reset postprocess results.')
+    } finally {
+      setResetting(false)
+    }
+  }
+
   const results = state?.results
   const mediaEntries = useMemo(() => results?.media ?? [], [results])
   const summary = results?.summary
@@ -253,6 +274,14 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
         <div className="postprocess-actions">
           <button className="ghost-button" type="button" onClick={() => loadState()} disabled={loading}>
             {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+          <button
+            className="ghost-button"
+            type="button"
+            onClick={handleResetResults}
+            disabled={resetting || running || state?.job?.status === 'running'}
+          >
+            {resetting ? 'Resetting...' : 'Reset results'}
           </button>
           <button className="primary-button" type="button" onClick={handleRun} disabled={running || !hasProject}>
             {running || state?.job?.status === 'running' ? 'Processing...' : 'Run postprocess'}

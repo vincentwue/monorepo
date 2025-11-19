@@ -16,7 +16,7 @@ from pymongo import MongoClient
 
 from ..postprocessing import config as post_cfg
 from ..postprocessing.audio_utils import has_ffmpeg
-from ..postprocessing.cue_detection import gather_reference_library
+from packages.python.ableton_cues.detection import gather_reference_library
 from ..postprocessing.main import iter_media, process_one
 from ..postprocessing.mongo_writer import insert_postprocessing_result
 from .auto_bar_cuts import render_auto_bar_video

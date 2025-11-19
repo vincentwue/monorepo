@@ -7,6 +7,6 @@ ROOT = Path(__file__).resolve().parents[6]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from packages.python.ableton_cues.audio_output import AudioOutputSelector
+from packages.python.ableton_cues.services import PrimaryCueDetectionService
 
-__all__ = ["AudioOutputSelector"]
+__all__ = ["PrimaryCueDetectionService"]
