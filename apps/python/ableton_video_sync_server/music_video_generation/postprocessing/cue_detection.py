@@ -25,16 +25,6 @@ def classify_reference_name(name: str):
     return None
 
 
-def mk_barker_bpsk(chip_ms: float, carrier_hz: float, fs: int = FS):
-    """Generate a fallback Barker-coded tone."""
-    barker = np.array([+1, +1, +1, +1, +1, -1, -1, +1, +1, -1, +1, -1, +1], np.float32)
-    chip_n = max(1, int(round(fs * (chip_ms / 1000.0))))
-    t_chip = np.linspace(0.0, chip_ms / 1000.0, chip_n, endpoint=False)
-    carrier = np.sin(2 * np.pi * carrier_hz * t_chip).astype(np.float32)
-    parts = [(bit * carrier) for bit in barker]
-    return fade(np.concatenate(parts))
-
-
 # =============================================================
 # === Reference Library Construction ===
 # =============================================================
@@ -101,13 +91,6 @@ def gather_reference_library(refs_dir: Path):
 
     refs["start"] = _keep_recent(refs["start"])
     refs["end"] = _keep_recent(refs["end"])
-
-    # --- add fallback Barker tones ---
-    for kind, freq in (("start", 3200.0), ("end", 2400.0)):
-        refs[kind].append({
-            "id": f"barker_{kind}",
-            "samples": mk_barker_bpsk(18, freq),
-        })
 
     # --- log info ---
     start_ids = [r["id"] for r in refs["start"]]

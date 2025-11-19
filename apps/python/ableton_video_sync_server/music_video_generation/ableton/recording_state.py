@@ -145,6 +145,19 @@ class RecordingStateStore:
             self._write_state(project, state)
         return self._prepare_response(project, state, None)
 
+    def get_recording(self, project_path: str, recording_id: str) -> Dict[str, Any]:
+        if not recording_id:
+            raise ValueError("Recording id is required.")
+        project = self._resolve_root(project_path)
+        with self._lock:
+            raw, _warning = self._read_state(project)
+            state, _ = self._apply_defaults(raw)
+            recordings: List[Dict[str, Any]] = state.get("recordings", [])
+            for entry in recordings:
+                if entry.get("id") == recording_id:
+                    return dict(entry)
+        raise ValueError(f"Recording not found: {recording_id}")
+
     def delete_recording(self, project_path: str, recording_id: str) -> Dict[str, Any]:
         if not recording_id:
             raise ValueError("Recording id is required.")

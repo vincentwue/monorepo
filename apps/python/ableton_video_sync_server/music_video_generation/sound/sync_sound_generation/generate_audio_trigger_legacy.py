@@ -48,7 +48,8 @@ def mk_start():
 
 
 def mk_end():
-    return mk_cue()
+    cue = mk_cue()
+    return cue[::-1].copy()
 
 
 def to_stereo_float32(mono: np.ndarray) -> np.ndarray:

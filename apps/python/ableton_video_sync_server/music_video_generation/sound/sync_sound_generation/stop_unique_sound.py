@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, wave
+import os, wave, time
 from pathlib import Path
 import numpy as np
 
@@ -28,13 +28,14 @@ def _chirp_down(f0: float, f1: float, dur: float, fs: int = FS) -> np.ndarray:
     return np.sin(phase)
 
 
-def mk_stop_unique(total_dur: float = 0.6) -> np.ndarray:
+def mk_stop_unique(total_dur: float = 1.2, seed: int | None = None) -> np.ndarray:
+    rng = np.random.default_rng(seed or int(time.time() * 1e6))
     parts = []
-    parts.append(_fade(_chirp_down(4000, 300, 0.22, FS)))
-    parts.append(np.zeros(int(0.02 * FS), dtype=np.float32))
-    parts.append(_fade(_tone(220, 0.08, FS)))
-    tail = np.random.default_rng(12345).standard_normal(int(0.12 * FS)).astype(np.float32)
-    tail = _fade(tail * 0.05)
+    parts.append(_fade(_chirp_down(4600, 200, 0.35, FS)))
+    parts.append(np.zeros(int(0.04 * FS), dtype=np.float32))
+    parts.append(_fade(_tone(rng.uniform(200, 360), 0.18, FS)))
+    tail = rng.standard_normal(int(0.25 * FS)).astype(np.float32)
+    tail = _fade(tail * 0.12)
     parts.append(tail)
     x = np.concatenate(parts)
     x = _fade(x)
@@ -60,11 +61,16 @@ def _save_wav(path: str, stereo_pcm: bytes, fs: int = FS) -> None:
         wf.writeframes(stereo_pcm)
 
 
-def ensure_stop_ref(filename: str = "stop_unique.wav", *, ref_dir: str | os.PathLike[str] | None = None):
+def ensure_stop_ref(
+    filename: str = "stop.wav",
+    *,
+    ref_dir: str | os.PathLike[str] | None = None,
+    seed: int | None = None,
+):
     target_dir = Path(ref_dir) if ref_dir else Path(REF_DIR)
     target_dir.mkdir(parents=True, exist_ok=True)
     path = target_dir / filename
-    mono = mk_stop_unique()
+    mono = mk_stop_unique(seed=seed)
     stereo = _to_stereo_float32(mono)
     _save_wav(str(path), _stereo_pcm_bytes(stereo))
     return str(path), stereo

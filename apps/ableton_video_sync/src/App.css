@@ -690,6 +690,36 @@
   text-align: right;
 }
 
+.recordings-table__cue-actions {
+  width: 1%;
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+
+.recording-cue-button {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.recording-cue-button:hover:not(:disabled) {
+  color: #7fe0ff;
+  border-color: rgba(127, 224, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recording-cue-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .recording-delete-button {
   border: none;
   background: transparent;
@@ -1169,6 +1199,12 @@
 .align-results table {
   width: 100%;
   margin-top: 0.75rem;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .modal-form {

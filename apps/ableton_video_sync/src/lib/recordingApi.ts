@@ -102,3 +102,21 @@ export function deleteRecording(projectPath: string, recordingId: string) {
     headers: jsonHeaders,
   }).then(handleResponse)
 }
+
+export function playRecordingCue(projectPath: string, recordingId: string, action: 'start' | 'stop') {
+  if (!projectPath) {
+    return Promise.reject(new Error('Select an active project first.'))
+  }
+  if (!recordingId) {
+    return Promise.reject(new Error('Recording id is required.'))
+  }
+  const idSafe = encodeURIComponent(recordingId)
+  return fetch(`${API_BASE}/recording/state/${idSafe}/cues`, {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      project_path: projectPath,
+      action,
+    }),
+  }).then(handleResponse)
+}

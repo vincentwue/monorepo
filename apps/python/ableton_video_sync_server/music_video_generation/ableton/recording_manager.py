@@ -2,6 +2,7 @@ from __future__ import annotations
 import json, math, threading, time, os, wave, shutil
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
+import numpy as np
 
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -13,7 +14,7 @@ from packages.python.live_rpyc.live_client import LiveClient
 
 # Audio cue plumbing
 try:
-    from music_video_generation.sound.cue_player import CuePlayer, to_stereo
+    from music_video_generation.sound.cue_player import CuePlayer, to_stereo, mk_barker_bpsk, unique_cue
     from music_video_generation.sound.audio_output_selection import AudioOutputSelector
     from music_video_generation.sound.sync_sound_generation.generate_audio_trigger_legacy import (
         ensure_refs as _legacy_ensure_refs,
@@ -30,6 +31,12 @@ except Exception:
     ensure_stop_ref = None  # type: ignore
     CueOutputService = None  # type: ignore
     RecordingStateStore = None  # type: ignore
+
+
+START_SEED_LENGTH = 0.75
+START_SEED_GAIN = 2.2
+STOP_SEED_LENGTH = 0.95
+STOP_SEED_GAIN = 2.0
 
 
 def beats_to_seconds(beats: float, bpm: float) -> float:
@@ -104,6 +111,8 @@ class RecordingManager:
         # cue paths for current recording window
         self._start_cue_path: str = ""
         self._stop_cue_path: str = ""
+        self._start_combined_path: str = ""
+        self._stop_combined_path: str = ""
         # snapshot of armed tracks at record start
         self._armed_track_names: List[str] = []
         self._cue_output_service = CueOutputService() if CueOutputService is not None else None
@@ -253,6 +262,8 @@ class RecordingManager:
         self._rec_start_beats = None
         self._start_cue_path = ""
         self._stop_cue_path = ""
+        self._start_combined_path = ""
+        self._stop_combined_path = ""
         self._armed_track_names = []
         self._capture_this_take = True
         self._cues_this_take = True
@@ -402,10 +413,16 @@ class RecordingManager:
                     self._start_cue_path = str(start_path)
                 except Exception:
                     pass
-            if not getattr(self, "_stop_cue_path", "") and 'ensure_stop_ref' in globals() and ensure_stop_ref is not None:
+            if (
+                not getattr(self, "_stop_cue_path", "")
+                and not getattr(self, "_stop_combined_path", "")
+                and (not getattr(self, "_cues_this_take", True))
+                and 'ensure_stop_ref' in globals()
+                and ensure_stop_ref is not None
+            ):
                 try:
                     suffix = self._timestamp_suffix(self._t1_wall or time.time())
-                    stop_path, _ = ensure_stop_ref(filename=f"stop_unique_{suffix}.wav", ref_dir=str(cue_dir))
+                    stop_path, _ = ensure_stop_ref(filename=f"stop_{suffix}.wav", ref_dir=str(cue_dir))
                     self._stop_cue_path = str(stop_path)
                 except Exception:
                     pass
@@ -420,7 +437,7 @@ class RecordingManager:
             if self._stop_cue_path:
                 self._stop_cue_path = self._ensure_unique_cue_reference(
                     self._stop_cue_path,
-                    "stop_unique",
+                    "stop",
                     cue_dir,
                     timestamp=self._t1_wall,
                 )
@@ -459,8 +476,10 @@ class RecordingManager:
                 bpm_at_start=self._rec_start_bpm,
                 ts_num=self._ts_num,
                 ts_den=self._ts_den,
-                start_sound_path=self._start_cue_path or "",
-                end_sound_path=self._stop_cue_path or "",
+                start_sound_path=self._start_combined_path or self._start_cue_path or "",
+                end_sound_path=self._stop_combined_path or self._stop_cue_path or "",
+                start_combined_path=self._start_combined_path or self._start_cue_path or "",
+                end_combined_path=self._stop_combined_path or self._stop_cue_path or "",
                 recording_track_names=list(self._armed_track_names or []),
             )
 
@@ -522,36 +541,66 @@ class RecordingManager:
             wf.setframerate(int(samplerate))
             wf.writeframes(pcm_bytes)
 
+    def _float_stereo_to_pcm(self, stereo: np.ndarray) -> bytes:
+        arr = np.clip(stereo, -1.0, 1.0)
+        return (arr * 32767).astype(np.int16).tobytes()
+
+    def _unique_start_variant(self, stereo: np.ndarray, seed: int) -> np.ndarray:
+        rng = np.random.default_rng(seed)
+        data = np.array(stereo, dtype=np.float32)
+        overlay_len = min(len(data), int(0.35 * 48000))
+        if overlay_len > 0:
+            overlay = rng.uniform(-0.25, 0.25, size=(overlay_len, data.shape[1])).astype(np.float32)
+            data[:overlay_len] = np.clip(data[:overlay_len] + overlay, -1.0, 1.0)
+        tone_len = int(0.25 * 48000)
+        t = np.linspace(0, 0.25, tone_len, endpoint=False, dtype=np.float32)
+        freq = rng.uniform(650.0, 1400.0)
+        extra = (np.sin(2 * np.pi * freq * t) * rng.uniform(0.6, 0.9)).astype(np.float32)
+        extra = np.column_stack((extra, extra))
+        data = np.concatenate([data, extra], axis=0)
+        return np.clip(data, -1.0, 1.0)
+
+    def _write_combined_cue(self, path: str, segments: List[np.ndarray]) -> None:
+        if not segments:
+            return
+        data = np.concatenate([np.asarray(seg, dtype=np.float32) for seg in segments], axis=0)
+        pcm = self._float_stereo_to_pcm(data)
+        self._save_stereo_pcm_wav(path, pcm, samplerate=48000)
+
     def _play_on_start(self, s) -> None:
         if CuePlayer is None:
             return
         cp = CuePlayer.instance()
-        # 1) Legacy START cue (blocking)
+        segments: List[np.ndarray] = []
         if _legacy_ensure_refs is not None:
             try:
                 cue_dir = self._cue_storage_dir()
-                start_path, _end_path, start_f32, _end_f32, start_pcm, _end_pcm = _legacy_ensure_refs(ref_dir=str(cue_dir))
-                # Save a timestamped copy for this recording
+                start_path, _end_path, start_f32, _end_f32, _start_pcm, _end_pcm = _legacy_ensure_refs(ref_dir=str(cue_dir))
                 suffix = self._timestamp_suffix(self._t0_wall or time.time())
                 dst_dir = os.path.dirname(start_path) or str(cue_dir)
                 dst_path = os.path.join(dst_dir, f"start_{suffix}.wav")
-                self._save_stereo_pcm_wav(dst_path, start_pcm, samplerate=48000)
-                self._start_cue_path = str(dst_path)
-                cp.play(start_f32)
+                seed = int((self._t0_wall or time.time()) * 1000)
+                unique_start = self._unique_start_variant(start_f32, seed)
+                cp.play(unique_start)
+
+                barker = to_stereo(mk_barker_bpsk(chip_ms=18.0, carrier_hz=3200.0, fs=cp.fs_out)) * 1.2
+                barker = np.clip(barker, -1.0, 1.0)
+                cp.play(barker, samplerate=cp.fs_out)
+
+                beats = float(getattr(s, "current_song_time", self._rec_start_beats or 0.0))
+                bpm = float(getattr(s, "tempo", self._rec_start_bpm))
+                seed_val = self._seed_from_ableton_time(beats, bpm)
+                seed_stereo = to_stereo(unique_cue(seed_val, length=START_SEED_LENGTH)) * START_SEED_GAIN
+                seed_stereo = np.clip(seed_stereo, -1.0, 1.0)
+                cp.play(seed_stereo)
+                segments.append(seed_stereo)
+
+                if segments:
+                    self._write_combined_cue(dst_path, segments)
+                    self._start_cue_path = str(dst_path)
+                    self._start_combined_path = str(dst_path)
             except Exception as e:
                 logger.debug(f"Legacy start cue failed: {e}")
-        # Add a robust Barker-13 BPSK marker (distinct carrier for START)
-        try:
-            cp.play_barker(chip_ms=18.0, carrier_hz=3200.0, gain=1.2, blocking=True)
-        except Exception:
-            pass
-        # 2) Seeded cue derived from Ableton timestamp
-        beats = float(getattr(s, "current_song_time", self._rec_start_beats or 0.0))
-        bpm = float(getattr(s, "tempo", self._rec_start_bpm))
-        seed = self._seed_from_ableton_time(beats, bpm)
-        # make the secondary seeded sound clearly louder than the first cue
-        # increase gain for START secondary cue
-        cp.play_seed(seed, dur=0.5, blocking=True, gain=1.8)
 
     def _play_on_stop(self, s=None) -> None:
         if CuePlayer is None:
@@ -560,28 +609,51 @@ class RecordingManager:
             logger.debug("Cue playback disabled for this project; skipping stop cue.")
             return
         cp = CuePlayer.instance()
-        # 1) Custom designed STOP cue (blocking)
-        if ensure_stop_ref is not None:
+        segments: List[np.ndarray] = []
+        primary_played = False
+        if _legacy_ensure_refs is not None:
             try:
-                suffix = self._timestamp_suffix(time.time())
                 cue_dir = self._cue_storage_dir()
-                stop_path, stop_stereo = ensure_stop_ref(filename=f"stop_unique_{suffix}.wav", ref_dir=str(cue_dir))
-                self._stop_cue_path = str(stop_path)
-                cp.play(stop_stereo)
+                _start_path, end_path, _start_f32, end_f32, _start_pcm, _end_pcm = _legacy_ensure_refs(ref_dir=str(cue_dir))
+                suffix = self._timestamp_suffix(self._t1_wall or time.time())
+                dst_dir = os.path.dirname(end_path) or str(cue_dir)
+                dst_path = os.path.join(dst_dir, f"stop_{suffix}.wav")
+                seed = int((self._t1_wall or time.time()) * 1000)
+                unique_end = self._unique_start_variant(end_f32, seed)
+                cp.play(unique_end)
+
+                barker = to_stereo(mk_barker_bpsk(chip_ms=18.0, carrier_hz=2400.0, fs=cp.fs_out)) * 1.2
+                barker = np.clip(barker, -1.0, 1.0)
+                cp.play(barker, samplerate=cp.fs_out)
+
+                beats = float(getattr(s or self.song, "current_song_time", 0.0))
+                bpm = float(getattr(s or self.song, "tempo", self._rec_start_bpm))
+                seed_val = self._seed_from_ableton_time(beats, bpm)
+                seed_stereo = to_stereo(unique_cue(seed_val, length=STOP_SEED_LENGTH)) * STOP_SEED_GAIN
+                seed_stereo = np.clip(seed_stereo, -1.0, 1.0)
+                cp.play(seed_stereo)
+                segments.append(seed_stereo)
+
+                if segments:
+                    self._write_combined_cue(dst_path, segments)
+                    self._stop_cue_path = str(dst_path)
+                    self._stop_combined_path = str(dst_path)
+                primary_played = True
             except Exception as e:
-                logger.debug(f"Custom stop cue failed: {e}")
-        # Add a robust Barker-13 BPSK marker (distinct carrier for STOP)
-        try:
-            cp.play_barker(chip_ms=18.0, carrier_hz=2400.0, gain=1.2, blocking=True)
-        except Exception:
-            pass
-        # 2) Seeded cue derived from Ableton timestamp at stop
-        src = s or self.song
-        beats = float(getattr(src, "current_song_time", 0.0))
-        bpm = float(getattr(src, "tempo", self._rec_start_bpm))
-        seed = self._seed_from_ableton_time(beats, bpm)
-        # make the secondary seeded sound a bit louder than the first cue
-        cp.play_seed(seed, dur=0.5, blocking=True, gain=1.25)
+                logger.debug(f"Legacy stop cue failed: {e}")
+        if not primary_played:
+            try:
+                cp.play_barker(chip_ms=18.0, carrier_hz=2400.0, gain=1.2, blocking=True)
+            except Exception:
+                pass
+            try:
+                src = s or self.song
+                beats = float(getattr(src, "current_song_time", 0.0))
+                bpm = float(getattr(src, "tempo", self._rec_start_bpm))
+                seed = self._seed_from_ableton_time(beats, bpm)
+                cp.play_seed(seed, dur=STOP_SEED_LENGTH, blocking=True, gain=STOP_SEED_GAIN)
+            except Exception:
+                pass
 
     # ---- persistence --------------------------------------------------------
     def _load_db(self) -> _DBEnvelope:

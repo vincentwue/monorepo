@@ -80,6 +80,7 @@ export type PostprocessState = {
 export type PostprocessRunOptions = {
   threshold?: number
   minGapSeconds?: number
+  files?: string[]
 }
 
 const API_BASE = INGEST_API_BASE_URL.replace(/\/+$/, '')
@@ -121,6 +122,9 @@ export function runPostprocess(projectPath: string, options?: PostprocessRunOpti
   }
   if (typeof options?.minGapSeconds === 'number' && Number.isFinite(options.minGapSeconds)) {
     payload.min_gap_s = options.minGapSeconds
+  }
+  if (Array.isArray(options?.files) && options!.files.length > 0) {
+    payload.files = options!.files
   }
   return fetch(`${API_BASE}/postprocess/run`, {
     method: 'POST',

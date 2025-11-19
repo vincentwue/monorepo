@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   deleteRecording,
   fetchRecordingState,
+  playRecordingCue,
   updateRecordingState,
   type RecordingEntry,
   type RecordingState,
@@ -62,6 +63,7 @@ export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [playingCue, setPlayingCue] = useState<{ id: string; action: 'start' | 'stop' } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -153,6 +155,24 @@ export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
     }
   }
 
+  const handlePlayRecordingCue = async (recordingId: string, action: 'start' | 'stop') => {
+    if (!activeProjectPath || !recordingId) {
+      return
+    }
+    setMessage(null)
+    setPlayingCue({ id: recordingId, action })
+    try {
+      const payload = await playRecordingCue(activeProjectPath, recordingId, action)
+      setState(payload)
+      setError(null)
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : 'Failed to trigger cue playback.')
+    } finally {
+      setPlayingCue(null)
+    }
+  }
+
   if (!hasProject) {
     return (
       <section className="ingest-panel">
@@ -209,6 +229,7 @@ export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
               <th>Duration</th>
               <th>Bars</th>
               <th>Armed tracks</th>
+              <th>Cues</th>
               <th />
             </tr>
           </thead>
@@ -222,6 +243,24 @@ export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
                   start {formatBar(entry.start_recording_bar)} / end {formatBar(entry.end_recording_bar)}
                 </td>
                 <td>{Array.isArray(entry.recording_track_names) ? entry.recording_track_names.join(', ') : '—'}</td>
+                <td className="recordings-table__cue-actions">
+                  <button
+                    type="button"
+                    className="recording-cue-button"
+                    onClick={() => entry.id && handlePlayRecordingCue(entry.id, 'start')}
+                    disabled={!entry.id || playingCue?.id === entry.id}
+                  >
+                    {playingCue?.id === entry.id && playingCue.action === 'start' ? 'Playing...' : 'Start'}
+                  </button>
+                  <button
+                    type="button"
+                    className="recording-cue-button"
+                    onClick={() => entry.id && handlePlayRecordingCue(entry.id, 'stop')}
+                    disabled={!entry.id || playingCue?.id === entry.id}
+                  >
+                    {playingCue?.id === entry.id && playingCue.action === 'stop' ? 'Playing...' : 'Stop'}
+                  </button>
+                </td>
                 <td className="recordings-table__actions">
                   <button
                     type="button"
@@ -238,7 +277,7 @@ export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
             ))}
             {recordings.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <p className="empty-state">No recordings logged yet.</p>
                 </td>
               </tr>

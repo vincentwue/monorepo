@@ -16,7 +16,7 @@
       "path": "/storage/emulated/0/DCIM/Camera",
       "adb_serial": "2A101FDH2006TG",
       "created_at": "2025-11-18T23:35:02.518735+00:00",
-      "last_ingested_at": "2025-11-19T10:08:27.177781+00:00"
+      "last_ingested_at": "2025-11-19T12:02:02.596235+00:00"
     }
   ],
   "runs": [
@@ -304,6 +304,22 @@
       "error": null,
       "started_at": "2025-11-19T10:08:23.361137+00:00",
       "completed_at": "2025-11-19T10:08:27.190228+00:00",
+      "only_today": true
+    },
+    {
+      "id": "9c4944f9-554a-413e-b194-e00db5bff7b7",
+      "project_path": "D:\\music_video_generation\\test2",
+      "device_ids": [
+        "f1e56325-9954-4c8d-bc8a-3e19d19296b2"
+      ],
+      "status": "completed",
+      "copied_files": [
+        "D:\\music_video_generation\\test2\\footage\\videos\\vincent_phone\\PXL_20251119_120002220.TS.mp4",
+        "D:\\music_video_generation\\test2\\footage\\videos\\vincent_phone\\PXL_20251119_120100201.TS.mp4"
+      ],
+      "error": null,
+      "started_at": "2025-11-19T12:01:57.268711+00:00",
+      "completed_at": "2025-11-19T12:02:02.606608+00:00",
       "only_today": true
     }
   ]

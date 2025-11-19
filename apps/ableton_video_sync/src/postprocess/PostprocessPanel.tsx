@@ -80,6 +80,7 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
   const [state, setState] = useState<PostprocessState | null>(null)
   const [loading, setLoading] = useState(false)
   const [running, setRunning] = useState(false)
+  const [reprocessing, setReprocessing] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [settingsError, setSettingsError] = useState<string | null>(null)
@@ -162,6 +163,24 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
     }
   }
 
+  const handleReprocess = async (file?: string | null) => {
+    if (!activeProjectPath || !file) {
+      return
+    }
+    setReprocessing(file)
+    setMessage(null)
+    try {
+      await runPostprocess(activeProjectPath, { files: [file] })
+      setMessage(`Started reprocessing ${file}.`)
+      loadState({ silent: true })
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : 'Failed to reprocess file.')
+    } finally {
+      setReprocessing(null)
+    }
+  }
+
   const results = state?.results
   const mediaEntries = useMemo(() => results?.media ?? [], [results])
   const summary = results?.summary
@@ -182,8 +201,24 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
     return Array.from(trackSet).sort((a, b) => a.localeCompare(b))
   }, [mediaEntries])
 
+  const cueBasePath = state?.results?.project_path
+    ? `${state.results.project_path.replace(/\\$/, '')}/ableton/cue_refs`
+    : null
+
   const topFiles = useMemo(() => {
     return [...mediaEntries].sort((a, b) => (b.top_score ?? 0) - (a.top_score ?? 0)).slice(0, 5)
+  }, [mediaEntries])
+
+  const cueRows = useMemo(() => {
+    return mediaEntries.map((entry) => {
+      const firstStart = Array.isArray(entry.start_hits) && entry.start_hits.length > 0 ? entry.start_hits[0] : null
+      const firstEnd = Array.isArray(entry.end_hits) && entry.end_hits.length > 0 ? entry.end_hits[0] : null
+      return {
+        entry,
+        startHit: firstStart,
+        endHit: firstEnd,
+      }
+    })
   }, [mediaEntries])
 
   useEffect(() => {
@@ -374,6 +409,18 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
                 <CueStatus label="Start" summary={entry.cue_detection?.start} />
                 <CueStatus label="End" summary={entry.cue_detection?.end} />
               </div>
+              {entry.file && (
+                <div className="timeline-actions">
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => handleReprocess(entry.file)}
+                    disabled={running || reprocessing === entry.file}
+                  >
+                    {reprocessing === entry.file ? 'Reprocessing…' : 'Reprocess clip'}
+                  </button>
+                </div>
+              )}
             </div>
           )
         })}
@@ -388,8 +435,10 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
                 <th>File</th>
                 <th>Segments</th>
                 <th>Tracks</th>
+                <th>First cue</th>
                 <th>Top score</th>
                 <th>Duration</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -398,8 +447,79 @@ export function PostprocessPanel({ activeProjectPath }: PostprocessPanelProps) {
                   <td>{entry.relative_path}</td>
                   <td>{entry.segments.length}</td>
                   <td>{entry.track_names?.join(', ') || '—'}</td>
+                  <td>{Array.isArray(entry.start_hits) && entry.start_hits.length > 0 ? entry.start_hits[0].ref_id ?? '—' : '—'}</td>
                   <td>{entry.top_score ? entry.top_score.toFixed(3) : '—'}</td>
                   <td>{formatDuration(entry.duration_s)}</td>
+                  <td className="table-actions">
+                    <button className="ghost-button" type="button" onClick={() => entry.file && openProjectFile(entry.file)}>
+                      Open video
+                    </button>
+                    {Array.isArray(entry.start_hits) && entry.start_hits.length > 0 && entry.start_hits[0].ref_id && (
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() =>
+                          openProjectFile(`${state?.project_path?.replace(/\\$/, '')}/ableton/cue_refs/${entry.start_hits?.[0]?.ref_id}`)
+                        }
+                      >
+                        Open cue
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {cueRows.length > 0 && (
+        <div className="postprocess-card">
+          <h3>Cue detections</h3>
+          <table className="postprocess-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Start cue</th>
+                <th>Start @</th>
+                <th>End cue</th>
+                <th>End @</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cueRows.map(({ entry, startHit, endHit }) => (
+                <tr key={`cue-${entry.file}`}>
+                  <td>{entry.relative_path}</td>
+                  <td>{startHit?.ref_id ?? '—'}</td>
+                  <td>{startHit?.time_s !== undefined ? `${startHit.time_s.toFixed(2)}s` : '—'}</td>
+                  <td>{endHit?.ref_id ?? '—'}</td>
+                  <td>{endHit?.time_s !== undefined ? `${endHit.time_s.toFixed(2)}s` : '—'}</td>
+                  <td className="table-actions">
+                    {entry.file && (
+                      <button className="ghost-button" type="button" onClick={() => openProjectFile(entry.file)}>
+                        Play video
+                      </button>
+                    )}
+                    {cueBasePath && startHit?.ref_id && (
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => openProjectFile(`${cueBasePath}/${startHit.ref_id}`)}
+                      >
+                        Play start cue
+                      </button>
+                    )}
+                    {cueBasePath && endHit?.ref_id && (
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => openProjectFile(`${cueBasePath}/${endHit.ref_id}`)}
+                      >
+                        Play end cue
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

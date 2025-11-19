@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from music_video_generation.video_ingest.ingest_connector import IngestConnector
 from music_video_generation.sound.cue_output_service import CueOutputService
+from music_video_generation.ableton.recording_cue_preview import RecordingCuePreviewer
 from music_video_generation.ableton.recording_state import RecordingStateStore
 from music_video_generation.ableton.connection_service import AbletonConnectionService
 from music_video_generation.ableton.recording_runtime import start_recording_runtime, stop_recording_runtime
@@ -26,6 +27,7 @@ connector = IngestConnector()
 cue_output_service = CueOutputService()
 cue_output_service.apply_saved_preferences()
 recording_store = RecordingStateStore()
+recording_cue_previewer = RecordingCuePreviewer()
 ableton_connection_service = AbletonConnectionService()
 start_recording_runtime()
 postprocess_service = PostprocessService()
@@ -73,6 +75,9 @@ class RecordingCueAction(BaseModel):
     project_path: str = Field(..., description="Absolute path to the active project.")
     action: str = Field(..., description="Either 'start' or 'stop'.")
 
+class RecordingEntryCueRequest(BaseModel):
+    project_path: str = Field(..., description="Absolute path to the active project.")
+    action: str = Field(..., description="Either 'start' or 'stop'.")
 
 class PostprocessRunRequest(BaseModel):
     project_path: str = Field(..., description="Absolute path to the active project.")
@@ -87,6 +92,10 @@ class PostprocessRunRequest(BaseModel):
         ge=0.0,
         le=5.0,
         description="Optional override for minimum seconds between cue hits.",
+    )
+    files: list[str] | None = Field(
+        default=None,
+        description="Optional list of absolute media paths to reprocess.",
     )
 
 
@@ -301,6 +310,26 @@ def recording_cues(payload: RecordingCueAction) -> dict:
     return state
 
 
+@app.post("/recording/state/{recording_id}/cues")
+def recording_entry_cues(recording_id: str, payload: RecordingEntryCueRequest) -> dict:
+    try:
+        entry = recording_store.get_recording(payload.project_path, recording_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    warning = None
+    try:
+        recording_cue_previewer.play(entry, payload.action, project_path=payload.project_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        warning = str(exc)
+    state = recording_store.load(payload.project_path)
+    if warning:
+        state["warning"] = warning
+    return state
+
+
 @app.get("/postprocess/state")
 def postprocess_state(project_path: str = Query(..., description="Absolute path to the active project.")) -> dict:
     try:
@@ -316,6 +345,7 @@ def postprocess_run(payload: PostprocessRunRequest) -> dict:
             payload.project_path,
             threshold=payload.threshold,
             min_gap_s=payload.min_gap_s,
+            files=payload.files,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

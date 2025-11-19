@@ -146,10 +146,20 @@ class PostprocessService:
         gap = max(gap, 0.0)
         return {"threshold": thr, "min_gap_s": gap}
 
-    def start(self, project_path: str, *, threshold: float | None = None, min_gap_s: float | None = None) -> Dict:
+    def start(
+        self,
+        project_path: str,
+        *,
+        threshold: float | None = None,
+        min_gap_s: float | None = None,
+        files: List[str] | None = None,
+    ) -> Dict:
         root = self._resolve_project(project_path)
         key = str(root)
         params = self._normalize_params(threshold=threshold, min_gap_s=min_gap_s)
+        targets = None
+        if files:
+            targets = {Path(f).expanduser().resolve() for f in files if f}
         with self._lock:
             job = self._jobs.get(key)
             if job and job.get("status") == "running":
@@ -162,8 +172,10 @@ class PostprocessService:
                 "error": None,
                 "params": params,
             }
+            if targets:
+                job["targets"] = [str(p) for p in targets]
             self._jobs[key] = job
-            thread = threading.Thread(target=self._worker, args=(root, key, params), daemon=True)
+            thread = threading.Thread(target=self._worker, args=(root, key, params, targets), daemon=True)
             thread.start()
         return job
 
@@ -181,10 +193,10 @@ class PostprocessService:
         }
 
     # ------------------------------------------------------------------ worker
-    def _worker(self, root: Path, job_key: str, params: Dict[str, float]) -> None:
+    def _worker(self, root: Path, job_key: str, params: Dict[str, float], targets: Optional[set[Path]]) -> None:
         job = self._jobs[job_key]
         try:
-            media = self._process_project(root, job, params)
+            media = self._process_project(root, job, params, targets)
             payload = self._build_payload(root, media, params)
             self._write_results(root, payload)
             job["status"] = "completed"
@@ -195,7 +207,7 @@ class PostprocessService:
             job["error"] = str(exc)
             job["completed_at"] = datetime.now(UTC).isoformat()
 
-    def _process_project(self, root: Path, job: Dict, params: Dict[str, float]) -> List[Dict]:
+    def _process_project(self, root: Path, job: Dict, params: Dict[str, float], targets: Optional[set[Path]]) -> List[Dict]:
         if not has_ffmpeg():
             raise RuntimeError("ffmpeg not found on PATH. Install ffmpeg to run postprocess.")
 
@@ -203,6 +215,12 @@ class PostprocessService:
         media_files = self._iter_media(footage_dir)
         if not media_files:
             raise RuntimeError(f"No media files found in {footage_dir}")
+
+        if targets:
+            target_paths = {p.resolve() for p in targets}
+            media_files = [p for p in media_files if p.resolve() in target_paths]
+            if not media_files:
+                raise RuntimeError("No matching media files found for requested subset.")
 
         refs_dir = self._reference_dir(root)
         refs = gather_reference_library(refs_dir)

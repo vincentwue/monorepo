@@ -45,6 +45,8 @@ class AbletonRecording(BaseModel):
     # start/end cue artifact paths
     start_sound_path: str = Field(default="")
     end_sound_path: str = Field(default="")
+    start_combined_path: str = Field(default="")
+    end_combined_path: str = Field(default="")
 
     recording_track_names : List[str] = Field(default_factory=list)
 
