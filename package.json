@@ -17,6 +17,7 @@
     "@types/react": "~19.1.10",
     "@types/react-dom": "~19.1.5",
     "@vitejs/plugin-react": "^5.1.0",
+    "electron": "30.5.1",
     "eslint": "^9",
     "prettier": "^3",
     "turbo": "^2",

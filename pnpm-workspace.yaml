@@ -1,5 +1,8 @@
 packages:
-  - "apps/*"
-  - "apps/javascript/*"
-  - "packages/javascript/*"
-  - "packages/javascript/topbar-layout/examples"
+  - apps/*
+  - apps/javascript/*
+  - packages/javascript/*
+  - packages/javascript/topbar-layout/examples
+
+ignoredBuiltDependencies:
+  - electron

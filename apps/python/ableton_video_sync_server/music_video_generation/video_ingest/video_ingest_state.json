@@ -1,0 +1,294 @@
+{
+  "devices": [
+    {
+      "id": "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2",
+      "name": "lumix camera",
+      "kind": "filesystem",
+      "path": "F:\\DCIM\\106_PANA",
+      "adb_serial": null,
+      "created_at": "2025-11-18T21:11:45.905469+00:00",
+      "last_ingested_at": "2025-11-18T23:07:45.012545+00:00"
+    },
+    {
+      "id": "f1e56325-9954-4c8d-bc8a-3e19d19296b2",
+      "name": "vincent_phone",
+      "kind": "adb",
+      "path": "/storage/emulated/0/DCIM/Camera",
+      "adb_serial": "2A101FDH2006TG",
+      "created_at": "2025-11-18T23:35:02.518735+00:00",
+      "last_ingested_at": "2025-11-19T08:35:12.479133+00:00"
+    }
+  ],
+  "runs": [
+    {
+      "id": "c9ddaec1-625b-4350-98d0-61a7235ad8e4",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2",
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T21:27:47.107582+00:00",
+      "completed_at": "2025-11-18T21:27:50.469641+00:00",
+      "only_today": true
+    },
+    {
+      "id": "a2c36375-60c3-45fe-9925-2a40c4e9e2c6",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2",
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T22:01:21.237528+00:00",
+      "completed_at": "2025-11-18T22:01:24.925267+00:00",
+      "only_today": true
+    },
+    {
+      "id": "ccdecb2e-38a1-4b65-8f36-b5d7f3796f3a",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2",
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T22:56:25.331757+00:00",
+      "completed_at": "2025-11-18T22:56:28.919629+00:00",
+      "only_today": true
+    },
+    {
+      "id": "a9197d0d-cd8e-4c3a-94fb-6b0655736152",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2",
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T22:56:43.758942+00:00",
+      "completed_at": "2025-11-18T22:56:46.920665+00:00",
+      "only_today": true
+    },
+    {
+      "id": "1510c10a-73a9-4728-8023-6ef8b936efc3",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2",
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T22:58:04.086182+00:00",
+      "completed_at": "2025-11-18T22:58:05.055558+00:00",
+      "only_today": true
+    },
+    {
+      "id": "3c082d97-2961-44e9-9a6f-7944c8200187",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2",
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T22:58:10.154792+00:00",
+      "completed_at": "2025-11-18T22:58:12.995054+00:00",
+      "only_today": true
+    },
+    {
+      "id": "ec6d90f5-a79c-4519-96a4-90006cbe72ac",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2",
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T23:00:12.640299+00:00",
+      "completed_at": "2025-11-18T23:00:15.959668+00:00",
+      "only_today": true
+    },
+    {
+      "id": "dc835590-7060-45d2-9416-31334e5801fc",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8",
+        "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T23:03:52.226828+00:00",
+      "completed_at": "2025-11-18T23:03:55.297693+00:00",
+      "only_today": true
+    },
+    {
+      "id": "611d2639-b4f7-4a3c-a96c-2dfa8a9db8cc",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "4e4c69bc-31e4-4ecb-b7c2-26d8a7b2abe2"
+      ],
+      "status": "completed",
+      "copied_files": [
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060415.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060437.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060438.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060439.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060440.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060441.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060442.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060443.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060444.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060445.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060446.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060447.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060448.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060449.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060450.MP4",
+        "D:\\music_video_generation\\demo\\footage\\videos\\lumix camera\\P1060451.MP4"
+      ],
+      "error": null,
+      "started_at": "2025-11-18T23:04:18.247011+00:00",
+      "completed_at": "2025-11-18T23:07:45.031143+00:00",
+      "only_today": false
+    },
+    {
+      "id": "b6a5d3fc-f2b2-4f59-9eed-6d833b26122b",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T23:11:51.303249+00:00",
+      "completed_at": "2025-11-18T23:11:54.421648+00:00",
+      "only_today": true
+    },
+    {
+      "id": "281bec83-b8fd-4daf-a6c8-e61738b5cf6a",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T23:28:53.369118+00:00",
+      "completed_at": "2025-11-18T23:28:56.069074+00:00",
+      "only_today": true
+    },
+    {
+      "id": "b76e9bd4-df9c-437d-b8ab-395c80e64888",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T23:28:54.511812+00:00",
+      "completed_at": "2025-11-18T23:28:57.177414+00:00",
+      "only_today": true
+    },
+    {
+      "id": "79a6b018-2412-45b2-9c73-bcf32f673e77",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T23:31:32.654963+00:00",
+      "completed_at": "2025-11-18T23:31:35.513169+00:00",
+      "only_today": true
+    },
+    {
+      "id": "9ea3b717-372d-4ac4-bee1-6eacaf0de0f1",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T23:31:38.334738+00:00",
+      "completed_at": "2025-11-18T23:31:41.167364+00:00",
+      "only_today": true
+    },
+    {
+      "id": "ea0b1fde-263a-4f5b-8b45-14d9c3ad3fae",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "d631fc62-07c2-424c-af43-d02b8d2b1cd8"
+      ],
+      "status": "completed",
+      "copied_files": [],
+      "error": null,
+      "started_at": "2025-11-18T23:33:22.999092+00:00",
+      "completed_at": "2025-11-18T23:33:25.878080+00:00",
+      "only_today": true
+    },
+    {
+      "id": "e66f2ca6-4417-4679-beb5-f107a3b39dd7",
+      "project_path": "D:\\music_video_generation\\demo",
+      "device_ids": [
+        "8ffd5297-375e-4ee9-b890-7e10af6b8d3a"
+      ],
+      "status": "completed",
+      "copied_files": [
+        "D:\\music_video_generation\\demo\\footage\\videos\\Pixel_7\\PXL_20251118_232848611.TS.mp4"
+      ],
+      "error": null,
+      "started_at": "2025-11-18T23:34:14.766873+00:00",
+      "completed_at": "2025-11-18T23:34:15.180307+00:00",
+      "only_today": true
+    },
+    {
+      "id": "74604875-f679-4bbb-93e6-ef735b857a1c",
+      "project_path": "D:\\music_video_generation\\small light",
+      "device_ids": [
+        "f1e56325-9954-4c8d-bc8a-3e19d19296b2"
+      ],
+      "status": "completed",
+      "copied_files": [
+        "D:\\music_video_generation\\small light\\footage\\videos\\vincent_phone\\PXL_20251118_232848611.TS.mp4",
+        "D:\\music_video_generation\\small light\\footage\\videos\\vincent_phone\\PXL_20251119_081145803.TS.mp4",
+        "D:\\music_video_generation\\small light\\footage\\videos\\vincent_phone\\PXL_20251119_081413405.TS.mp4",
+        "D:\\music_video_generation\\small light\\footage\\videos\\vincent_phone\\PXL_20251119_081435959.TS.mp4",
+        "D:\\music_video_generation\\small light\\footage\\videos\\vincent_phone\\PXL_20251119_081925991.TS.mp4"
+      ],
+      "error": null,
+      "started_at": "2025-11-19T08:20:37.086830+00:00",
+      "completed_at": "2025-11-19T08:20:46.984272+00:00",
+      "only_today": true
+    },
+    {
+      "id": "a2975d09-d233-456c-bbbd-b5bdbd79f7c1",
+      "project_path": "D:\\music_video_generation\\small light",
+      "device_ids": [
+        "f1e56325-9954-4c8d-bc8a-3e19d19296b2"
+      ],
+      "status": "completed",
+      "copied_files": [
+        "D:\\music_video_generation\\small light\\footage\\videos\\vincent_phone\\PXL_20251119_083313631.TS.mp4",
+        "D:\\music_video_generation\\small light\\footage\\videos\\vincent_phone\\PXL_20251119_083334110.TS.mp4"
+      ],
+      "error": null,
+      "started_at": "2025-11-19T08:35:08.367106+00:00",
+      "completed_at": "2025-11-19T08:35:12.492852+00:00",
+      "only_today": true
+    }
+  ]
+}

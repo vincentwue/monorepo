@@ -85,3 +85,7 @@ client/src/**/*.js.map
 cue_refs
 
 *.mp4
+*.pak
+
+# Ableton Video Sync packaged releases
+apps/ableton_video_sync/release/

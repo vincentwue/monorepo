@@ -1,0 +1,171 @@
+{
+  "adb:marco_phone:/storage/emulated/0/DCIM/OpenCamera": {
+    "last_seen": "2025-10-03T19:16:01.945521+02:00",
+    "recent": [
+      {
+        "id": "/storage/emulated/0/DCIM/OpenCamera/VID_20251003_173528.mp4",
+        "mtime": 1759505700.0,
+        "size": 7265287
+      }
+    ]
+  },
+  "adb:vincent_phone:/storage/emulated/0/DCIM/OpenCamera": {
+    "last_seen": "2025-10-03T19:16:02.164299+02:00",
+    "recent": [
+      {
+        "id": "/storage/emulated/0/DCIM/OpenCamera/VID_20251003_183554.mp4",
+        "mtime": 1759509300.0,
+        "size": 14771062
+      }
+    ]
+  },
+  "filesystem:lumix:F:/DCIM/106_PANA": {
+    "last_seen": "2025-10-03T19:16:02.165384+02:00",
+    "recent": [
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060437.MP4",
+        "mtime": 1759510245.0,
+        "size": 10034833
+      }
+    ]
+  },
+  "filesystem:lumix camera:F:\\DCIM\\106_PANA": {
+    "last_seen": "2025-11-19T00:07:45.010802+01:00",
+    "recent": [
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060415.MP4",
+        "mtime": 1755209012.0,
+        "size": 117282880
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060437.MP4",
+        "mtime": 1759513845.0,
+        "size": 10034833
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060438.MP4",
+        "mtime": 1759517175.0,
+        "size": 118354920
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060439.MP4",
+        "mtime": 1759517233.0,
+        "size": 207409928
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060440.MP4",
+        "mtime": 1759527490.0,
+        "size": 674325059
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060441.MP4",
+        "mtime": 1759527691.0,
+        "size": 331885414
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060442.MP4",
+        "mtime": 1759527835.0,
+        "size": 954035379
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060443.MP4",
+        "mtime": 1759528248.0,
+        "size": 1048404534
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060444.MP4",
+        "mtime": 1759591427.0,
+        "size": 682185102
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060445.MP4",
+        "mtime": 1759591633.0,
+        "size": 245800857
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060446.MP4",
+        "mtime": 1759591708.0,
+        "size": 651541252
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060447.MP4",
+        "mtime": 1759591939.0,
+        "size": 662784912
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060448.MP4",
+        "mtime": 1759596458.0,
+        "size": 41634780
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060449.MP4",
+        "mtime": 1759596939.0,
+        "size": 1195918328
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060450.MP4",
+        "mtime": 1759597295.0,
+        "size": 1116479085
+      },
+      {
+        "id": "F:\\DCIM\\106_PANA\\P1060451.MP4",
+        "mtime": 1759597653.0,
+        "size": 1010353054
+      }
+    ]
+  },
+  "adb:Pixel_7:/storage/emulated/0/DCIM": {
+    "last_seen": "2025-11-19T00:33:25.862921+01:00",
+    "recent": []
+  },
+  "adb:Pixel_7:/storage/emulated/0/DCIM/Camera": {
+    "last_seen": "2025-11-19T00:34:15.168122+01:00",
+    "recent": [
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251118_232848611.TS.mp4",
+        "mtime": 1763508480.0,
+        "size": 8188194
+      }
+    ]
+  },
+  "adb:vincent_phone:/storage/emulated/0/DCIM/Camera": {
+    "last_seen": "2025-11-19T09:35:12.477770+01:00",
+    "recent": [
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251118_232848611.TS.mp4",
+        "mtime": 1763508480.0,
+        "size": 8188194
+      },
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251119_081145803.TS.mp4",
+        "mtime": 1763539860.0,
+        "size": 29109786
+      },
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251119_081413405.TS.mp4",
+        "mtime": 1763540040.0,
+        "size": 44704806
+      },
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251119_081435959.TS.mp4",
+        "mtime": 1763540100.0,
+        "size": 229249464
+      },
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251119_081925991.TS.mp4",
+        "mtime": 1763540340.0,
+        "size": 69563557
+      },
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251119_083313631.TS.mp4",
+        "mtime": 1763541180.0,
+        "size": 31070633
+      },
+      {
+        "id": "/storage/emulated/0/DCIM/Camera/PXL_20251119_083334110.TS.mp4",
+        "mtime": 1763541240.0,
+        "size": 127406458
+      }
+    ]
+  }
+}

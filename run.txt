@@ -20,3 +20,5 @@ pnpm run dev
 
 pnpm --filter react-native-ideas start --android
 
+cd apps/python/ableton_video_sync_server
+uvicorn server:app --host 0.0.0.0 --port 5050
