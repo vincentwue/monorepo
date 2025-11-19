@@ -8,6 +8,7 @@ import { IngestDetail } from './ingest/IngestDetail'
 import { PostprocessPanel } from './postprocess/PostprocessPanel'
 import { PrimaryCuePanel } from './postprocess/PrimaryCuePanel'
 import { RecordPanel } from './record/RecordPanel'
+import { VideoGeneratorPanel } from './video/VideoGeneratorPanel'
 
 type AppSettings = {
   mainFolder?: string
@@ -52,6 +53,7 @@ const TABS = [
   { id: 'primaryCues', label: 'Primary cue detection' },
   { id: 'postprocess', label: 'Postprocess footage' },
   { id: 'align', label: 'Align footage' },
+  { id: 'videoGen', label: 'Video generator' },
   { id: 'footage', label: 'Footage' },
   { id: 'renders', label: 'Renders' },
 ]
@@ -388,6 +390,8 @@ function App() {
           <PrimaryCuePanel activeProjectPath={activeProjectPath} />
         ) : activeTab === 'align' ? (
           <AlignFootagePanel activeProjectPath={activeProjectPath} />
+        ) : activeTab === 'videoGen' ? (
+          <VideoGeneratorPanel activeProjectPath={activeProjectPath} />
         ) : activeTab === 'devices' ? (
           <DevicesPanel
             mainFolder={mainFolder}

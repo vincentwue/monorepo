@@ -22,6 +22,10 @@ try:
 except ImportError:  # pragma: no cover - workspace fallback
     from packages.python.cue_detection_service import PrimaryCueDetectionService
 from music_video_generation.postprocessing.align_service import FootageAlignService
+from music_video_generation.multi_video_generator.pipeline import (
+    render_auto_bar_edit,
+    render_sync_edit,
+)
 logger.add(sys.stdout, level="INFO")
 logger.info("Server booted")
 app = FastAPI(title="Ableton Video Sync Server", version="0.1.0")
@@ -124,6 +128,55 @@ class AlignFootageRequest(BaseModel):
     audio_path: str | None = Field(
         default=None,
         description="Optional override for the soundtrack to align against.",
+    )
+
+
+class VideoGenSyncRequest(BaseModel):
+    project_path: str = Field(..., description="Absolute path to the active project.")
+    audio_path: str | None = Field(
+        default=None,
+        description="Optional override for the soundtrack.",
+    )
+    bars_per_cut: int | None = Field(
+        default=None,
+        ge=1,
+        description="Optional bars per cut override.",
+    )
+    cut_length_s: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Optional fixed cut length override.",
+    )
+    custom_duration_s: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Optional custom total duration override.",
+    )
+    debug: bool | None = Field(
+        default=None,
+        description="Include debug overlays in the render output.",
+    )
+
+
+class VideoGenAutoRequest(BaseModel):
+    project_path: str = Field(..., description="Absolute path to the active project.")
+    video_dir: str | None = Field(
+        default=None,
+        description="Optional override for the footage directory.",
+    )
+    audio_path: str | None = Field(
+        default=None,
+        description="Optional override for the soundtrack.",
+    )
+    bars_per_cut: int | None = Field(
+        default=None,
+        ge=1,
+        description="Optional bars per cut override.",
+    )
+    custom_duration_s: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Optional custom total duration override.",
     )
 
 
@@ -413,6 +466,64 @@ def align_state(project_path: str = Query(..., description="Absolute path to the
         return align_service.state(project_path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/video-gen/sync")
+def video_gen_sync(payload: VideoGenSyncRequest) -> dict:
+    root = Path(payload.project_path or "").expanduser().resolve()
+    if not root.exists():
+        raise HTTPException(status_code=400, detail=f"Project path not found: {payload.project_path}")
+    try:
+        audio_path = (
+            Path(payload.audio_path).expanduser().resolve()
+            if payload.audio_path
+            else align_service._resolve_audio(root, None)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
+        return render_sync_edit(
+            root.name,
+            audio_path,
+            bars_per_cut=payload.bars_per_cut,
+            cut_length_s=payload.cut_length_s,
+            custom_duration_s=payload.custom_duration_s,
+            debug=payload.debug,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/video-gen/auto")
+def video_gen_auto(payload: VideoGenAutoRequest) -> dict:
+    root = Path(payload.project_path or "").expanduser().resolve()
+    if not root.exists():
+        raise HTTPException(status_code=400, detail=f"Project path not found: {payload.project_path}")
+    try:
+        audio_path = (
+            Path(payload.audio_path).expanduser().resolve()
+            if payload.audio_path
+            else align_service._resolve_audio(root, None)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    video_dir = (
+        Path(payload.video_dir).expanduser().resolve()
+        if payload.video_dir
+        else (root / "footage" / "videos")
+    )
+    if not video_dir.exists() or not video_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"Video directory not found: {video_dir}")
+    try:
+        return render_auto_bar_edit(
+            root.name,
+            video_dir,
+            audio_path,
+            bars_per_cut=payload.bars_per_cut,
+            custom_duration_s=payload.custom_duration_s,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 @app.get("/primary-cues/state")
 def primary_cue_state(project_path: str = Query(..., description="Absolute path to the active project.")) -> dict:
