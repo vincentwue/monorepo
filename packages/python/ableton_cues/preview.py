@@ -64,8 +64,11 @@ class RecordingCuePreviewer:
         start_beats = float(entry.start_recording_bar or 0.0) * bpb
         end_beats = float(entry.end_recording_bar or start_beats) * bpb
 
-        recorded_start = self._load_recorded_seed(entry, kind="start")
-        recorded_end = self._load_recorded_seed(entry, kind="end")
+        recorded_start_sequence = self._load_recorded_sequence(entry, kind="start")
+        recorded_stop_sequence = self._load_recorded_sequence(entry, kind="end")
+
+        recorded_start_seed = None if recorded_start_sequence else self._load_recorded_seed(entry, kind="start")
+        recorded_stop_seed = None if recorded_stop_sequence else self._load_recorded_seed(entry, kind="end")
 
         if verb == "start":
             self._play_start_sequence(
@@ -74,7 +77,8 @@ class RecordingCuePreviewer:
                 entry.time_start_recording,
                 start_beats,
                 entry.bpm_at_start,
-                recorded_seed=recorded_start,
+                recorded_sequence=recorded_start_sequence,
+                recorded_seed=recorded_start_seed,
             )
         else:
             self._play_stop_sequence(
@@ -83,7 +87,8 @@ class RecordingCuePreviewer:
                 entry.time_end_recording,
                 end_beats,
                 entry.bpm_at_start,
-                recorded_seed=recorded_end,
+                recorded_sequence=recorded_stop_sequence,
+                recorded_seed=recorded_stop_seed,
             )
 
     # ------------------------------------------------------------------ helpers
@@ -140,6 +145,12 @@ class RecordingCuePreviewer:
         data = np.concatenate([data, extra], axis=0)
         return np.clip(data, -1.0, 1.0)
 
+    @staticmethod
+    def _duration_from_audio(stereo: np.ndarray, rate: int | float) -> float:
+        if stereo.size == 0 or not rate:
+            return 0.0
+        return float(len(stereo)) / float(rate)
+
     def _play_start_sequence(
         self,
         cp,
@@ -148,23 +159,42 @@ class RecordingCuePreviewer:
         beats: float,
         bpm: float,
         *,
+        recorded_sequence: Tuple[np.ndarray, int, str] | None,
         recorded_seed: Tuple[np.ndarray, int, str] | None,
     ) -> None:
+        if recorded_sequence is not None:
+            stereo, rate, source = recorded_sequence
+            duration = self._duration_from_audio(stereo, rate)
+            logger.info("RecordingCuePreviewer: playing recorded START cue from %s (%.3fs)", source, duration)
+            cp.play(stereo, samplerate=rate)
+            return
+
         unique_start = self._unique_variant(template, self._timestamp_seed(timestamp))
+        unique_dur = self._duration_from_audio(unique_start, cp.fs_out)
         cp.play(unique_start)
 
         barker = to_stereo(mk_barker_bpsk(chip_ms=18.0, carrier_hz=3200.0, fs=cp.fs_out)) * 1.2
         barker = np.clip(barker, -1.0, 1.0)
+        barker_dur = self._duration_from_audio(barker, cp.fs_out)
         cp.play(barker, samplerate=cp.fs_out)
 
         if recorded_seed is not None:
             stereo, rate, source = recorded_seed
-            logger.info("RecordingCuePreviewer: playing recorded START seed from %s", source)
+            duration = self._duration_from_audio(stereo, rate)
+            logger.info("RecordingCuePreviewer: playing recorded START seed from %s (%.3fs)", source, duration)
             cp.play(stereo, samplerate=rate)
         else:
             seed_val = self._seed_from_ableton_time(beats, bpm)
             seed_stereo = to_stereo(unique_cue(seed_val, length=START_SEED_LENGTH)) * START_SEED_GAIN
             seed_stereo = np.clip(seed_stereo, -1.0, 1.0)
+            seed_dur = self._duration_from_audio(seed_stereo, cp.fs_out)
+            logger.info(
+                "RecordingCuePreviewer: playing synthetic START cue (unique=%.3fs, barker=%.3fs, seed=%.3fs, total=%.3fs)",
+                unique_dur,
+                barker_dur,
+                seed_dur,
+                unique_dur + barker_dur + seed_dur,
+            )
             cp.play(seed_stereo)
 
     def _play_stop_sequence(
@@ -175,23 +205,42 @@ class RecordingCuePreviewer:
         beats: float,
         bpm: float,
         *,
+        recorded_sequence: Tuple[np.ndarray, int, str] | None,
         recorded_seed: Tuple[np.ndarray, int, str] | None,
     ) -> None:
+        if recorded_sequence is not None:
+            stereo, rate, source = recorded_sequence
+            duration = self._duration_from_audio(stereo, rate)
+            logger.info("RecordingCuePreviewer: playing recorded STOP cue from %s (%.3fs)", source, duration)
+            cp.play(stereo, samplerate=rate)
+            return
+
         unique_end = self._unique_variant(template, self._timestamp_seed(timestamp))
+        unique_dur = self._duration_from_audio(unique_end, cp.fs_out)
         cp.play(unique_end)
 
         barker = to_stereo(mk_barker_bpsk(chip_ms=18.0, carrier_hz=2400.0, fs=cp.fs_out)) * 1.2
         barker = np.clip(barker, -1.0, 1.0)
+        barker_dur = self._duration_from_audio(barker, cp.fs_out)
         cp.play(barker, samplerate=cp.fs_out)
 
         if recorded_seed is not None:
             stereo, rate, source = recorded_seed
-            logger.info("RecordingCuePreviewer: playing recorded STOP seed from %s", source)
+            duration = self._duration_from_audio(stereo, rate)
+            logger.info("RecordingCuePreviewer: playing recorded STOP seed from %s (%.3fs)", source, duration)
             cp.play(stereo, samplerate=rate)
         else:
             seed_val = self._seed_from_ableton_time(beats, bpm)
             seed_stereo = to_stereo(unique_cue(seed_val, length=STOP_SEED_LENGTH)) * STOP_SEED_GAIN
             seed_stereo = np.clip(seed_stereo, -1.0, 1.0)
+            seed_dur = self._duration_from_audio(seed_stereo, cp.fs_out)
+            logger.info(
+                "RecordingCuePreviewer: playing synthetic STOP cue (unique=%.3fs, barker=%.3fs, seed=%.3fs, total=%.3fs)",
+                unique_dur,
+                barker_dur,
+                seed_dur,
+                unique_dur + barker_dur + seed_dur,
+            )
             cp.play(seed_stereo)
 
     def _load_saved_cue_audio(self, path: str | None) -> Tuple[np.ndarray, int, str] | None:
@@ -231,16 +280,24 @@ class RecordingCuePreviewer:
             stereo = arr[:, :2]
         return np.asarray(stereo, dtype=np.float32), rate, str(file_path)
 
+    def _load_recorded_sequence(self, entry: AbletonRecording, *, kind: str) -> Tuple[np.ndarray, int, str] | None:
+        field = "start_combined_path" if kind == "start" else "end_combined_path"
+        path = getattr(entry, field, "") or None
+        if not path:
+            return None
+        try:
+            return self._load_saved_cue_audio(path)
+        except Exception:
+            return None
+
     def _load_recorded_seed(self, entry: AbletonRecording, *, kind: str) -> Tuple[np.ndarray, int, str] | None:
         candidates: Sequence[str | None]
         if kind == "start":
             candidates = [
-                getattr(entry, "start_combined_path", "") or None,
                 getattr(entry, "start_sound_path", "") or None,
             ]
         else:
             candidates = [
-                getattr(entry, "end_combined_path", "") or None,
                 getattr(entry, "end_sound_path", "") or None,
             ]
         for candidate in candidates:

@@ -58,6 +58,15 @@ const formatBar = (value?: number) => {
   return value.toFixed(2)
 }
 
+const cueFilename = (value: unknown) => {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return '—'
+  }
+  const normalized = value.replace(/\\+/g, '/')
+  const segments = normalized.split('/')
+  return segments[segments.length - 1] || normalized
+}
+
 export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
   const [state, setState] = useState<RecordingState | null>(null)
   const [loading, setLoading] = useState(false)
@@ -229,6 +238,8 @@ export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
               <th>Duration</th>
               <th>Bars</th>
               <th>Armed tracks</th>
+              <th>Start cue</th>
+              <th>Stop cue</th>
               <th>Cues</th>
               <th />
             </tr>
@@ -243,6 +254,8 @@ export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
                   start {formatBar(entry.start_recording_bar)} / end {formatBar(entry.end_recording_bar)}
                 </td>
                 <td>{Array.isArray(entry.recording_track_names) ? entry.recording_track_names.join(', ') : '—'}</td>
+                <td>{cueFilename(entry.start_combined_path ?? entry.start_sound_path)}</td>
+                <td>{cueFilename(entry.end_combined_path ?? entry.end_sound_path)}</td>
                 <td className="recordings-table__cue-actions">
                   <button
                     type="button"
@@ -277,7 +290,7 @@ export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
             ))}
             {recordings.length === 0 && (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={9}>
                   <p className="empty-state">No recordings logged yet.</p>
                 </td>
               </tr>

@@ -168,11 +168,6 @@ class RecordingManager:
                     )
             except Exception as e:
                 logger.warning(f"Audio output auto-select failed: {e}")
-        # fire stop cues via end-callback as a fallback (ensures cue even if inline hook fails)
-        try:
-            self.add_on_record_end_listener(lambda _rec: self._play_on_stop(None))
-        except Exception:
-            pass
 
     # ---- public API --------------------------------------------------------
     def add_on_record_end_listener(self, cb: Callable[[AbletonRecording], None]) -> None:
@@ -285,6 +280,10 @@ class RecordingManager:
                 # safety: mark start now if we somehow missed it
                 self._mark_start(s)
             self._t1_wall = time.time()
+            try:
+                self._play_on_stop(s)
+            except Exception as exc:
+                logger.warning(f"Failed to emit stop cue inline: {exc}")
             logger.info(" Record OFF.")
             rec = self._build_recording()
             if rec is not None:
@@ -609,12 +608,21 @@ class RecordingManager:
         data = np.concatenate([data, extra], axis=0)
         return np.clip(data, -1.0, 1.0)
 
-    def _write_combined_cue(self, path: str, segments: List[np.ndarray]) -> None:
+    def _write_combined_cue(self, path: str, segments: List[np.ndarray], *, samplerate: int = 48000) -> float:
         if not segments:
-            return
+            return 0.0
         data = np.concatenate([np.asarray(seg, dtype=np.float32) for seg in segments], axis=0)
         pcm = self._float_stereo_to_pcm(data)
-        self._save_stereo_pcm_wav(path, pcm, samplerate=48000)
+        self._save_stereo_pcm_wav(path, pcm, samplerate=samplerate)
+        duration = float(len(data)) / float(samplerate or 1)
+        logger.info(
+            "RecordingManager: wrote combined cue %s (%d frames @ %d Hz, %.3fs)",
+            os.path.basename(path),
+            len(data),
+            samplerate,
+            duration,
+        )
+        return duration
 
     def _play_on_start(self, s) -> None:
         if CuePlayer is None:
@@ -631,10 +639,12 @@ class RecordingManager:
                 seed = int((self._t0_wall or time.time()) * 1000)
                 unique_start = self._unique_start_variant(start_f32, seed)
                 cp.play(unique_start)
+                segments.append(np.array(unique_start, dtype=np.float32))
 
                 barker = to_stereo(mk_barker_bpsk(chip_ms=18.0, carrier_hz=3200.0, fs=cp.fs_out)) * 1.2
                 barker = np.clip(barker, -1.0, 1.0)
                 cp.play(barker, samplerate=cp.fs_out)
+                segments.append(np.array(barker, dtype=np.float32))
 
                 beats = float(getattr(s, "current_song_time", self._rec_start_beats or 0.0))
                 bpm = float(getattr(s, "tempo", self._rec_start_bpm))
@@ -642,10 +652,18 @@ class RecordingManager:
                 seed_stereo = to_stereo(unique_cue(seed_val, length=START_SEED_LENGTH)) * START_SEED_GAIN
                 seed_stereo = np.clip(seed_stereo, -1.0, 1.0)
                 cp.play(seed_stereo)
-                segments.append(seed_stereo)
+                segments.append(np.array(seed_stereo, dtype=np.float32))
 
                 if segments:
-                    self._write_combined_cue(dst_path, segments)
+                    sr = int(getattr(cp, "fs_out", 48000) or 48000)
+                    durations = [float(len(seg)) / float(sr) for seg in segments]
+                    summary = (durations + [sum(durations)])[:4]
+                    summary += [0.0] * (4 - len(summary))
+                    logger.info(
+                        "RecordingManager: start cue segments unique=%.3fs barker=%.3fs seed=%.3fs total=%.3fs",
+                        *summary,
+                    )
+                    self._write_combined_cue(dst_path, segments, samplerate=sr)
                     self._start_cue_path = str(dst_path)
                     self._start_combined_path = str(dst_path)
             except Exception as e:
@@ -654,26 +672,33 @@ class RecordingManager:
     def _play_on_stop(self, s=None) -> None:
         if CuePlayer is None:
             return
-        if not getattr(self, "_cues_this_take", True):
-            logger.debug("Cue playback disabled for this project; skipping stop cue.")
-            return
+        playback_enabled = bool(getattr(self, "_cues_this_take", True))
         cp = CuePlayer.instance()
         segments: List[np.ndarray] = []
         primary_played = False
-        if _legacy_ensure_refs is not None:
+        if playback_enabled and _legacy_ensure_refs is not None:
             try:
                 cue_dir = self._cue_storage_dir()
-                _start_path, end_path, _start_f32, end_f32, _start_pcm, _end_pcm = _legacy_ensure_refs(ref_dir=str(cue_dir))
+                (
+                    _start_path,
+                    end_path,
+                    _start_f32,
+                    _end_f32,
+                    _start_pcm,
+                    _end_pcm,
+                ) = _legacy_ensure_refs(ref_dir=str(cue_dir))
                 suffix = self._timestamp_suffix(self._t1_wall or time.time())
                 dst_dir = os.path.dirname(end_path) or str(cue_dir)
                 dst_path = os.path.join(dst_dir, f"stop_{suffix}.wav")
                 seed = int((self._t1_wall or time.time()) * 1000)
-                unique_end = self._unique_start_variant(end_f32, seed)
+                unique_end = to_stereo(mk_stop_unique(seed=seed))
                 cp.play(unique_end)
+                segments.append(np.array(unique_end, dtype=np.float32))
 
                 barker = to_stereo(mk_barker_bpsk(chip_ms=18.0, carrier_hz=2400.0, fs=cp.fs_out)) * 1.2
                 barker = np.clip(barker, -1.0, 1.0)
                 cp.play(barker, samplerate=cp.fs_out)
+                segments.append(np.array(barker, dtype=np.float32))
 
                 beats = float(getattr(s or self.song, "current_song_time", 0.0))
                 bpm = float(getattr(s or self.song, "tempo", self._rec_start_bpm))
@@ -681,16 +706,24 @@ class RecordingManager:
                 seed_stereo = to_stereo(unique_cue(seed_val, length=STOP_SEED_LENGTH)) * STOP_SEED_GAIN
                 seed_stereo = np.clip(seed_stereo, -1.0, 1.0)
                 cp.play(seed_stereo)
-                segments.append(seed_stereo)
+                segments.append(np.array(seed_stereo, dtype=np.float32))
 
                 if segments:
-                    self._write_combined_cue(dst_path, segments)
+                    sr = int(getattr(cp, "fs_out", 48000) or 48000)
+                    durations = [float(len(seg)) / float(sr) for seg in segments]
+                    summary = (durations + [sum(durations)])[:4]
+                    summary += [0.0] * (4 - len(summary))
+                    logger.info(
+                        "RecordingManager: stop cue segments unique=%.3fs barker=%.3fs seed=%.3fs total=%.3fs",
+                        *summary,
+                    )
+                    self._write_combined_cue(dst_path, segments, samplerate=sr)
                     self._stop_cue_path = str(dst_path)
                     self._stop_combined_path = str(dst_path)
                 primary_played = True
             except Exception as e:
                 logger.debug(f"Legacy stop cue failed: {e}")
-        if not primary_played:
+        if not primary_played and playback_enabled:
             try:
                 cp.play_barker(chip_ms=18.0, carrier_hz=2400.0, gain=1.2, blocking=True)
             except Exception:
@@ -703,6 +736,15 @@ class RecordingManager:
                 cp.play_seed(seed, dur=STOP_SEED_LENGTH, blocking=True, gain=STOP_SEED_GAIN)
             except Exception:
                 pass
+            if ensure_stop_ref is not None:
+                try:
+                    cue_dir = self._cue_storage_dir()
+                    suffix = self._timestamp_suffix(self._t1_wall or time.time())
+                    stop_path, _ = ensure_stop_ref(filename=f"stop_{suffix}.wav", ref_dir=str(cue_dir))
+                    self._stop_cue_path = str(stop_path)
+                    self._stop_combined_path = str(stop_path)
+                except Exception as exc:
+                    logger.debug(f"Fallback stop cue generation failed: {exc}")
 
     # ---- persistence --------------------------------------------------------
     def _load_db(self) -> _DBEnvelope:

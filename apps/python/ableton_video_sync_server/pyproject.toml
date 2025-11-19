@@ -11,6 +11,7 @@ dependencies = [
   "sounddevice>=0.5.3",
   "loguru>=0.7.3",
   "scipy>=1.16.3",
+  "annotated-doc>=0.0.4",
 ]
 
 [project.scripts]
