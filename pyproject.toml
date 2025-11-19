@@ -5,7 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "loguru>=0.7.3",
     "pytest>=9.0.1",
+    "soundfile>=0.13.1",
 ]
 
 [tool.uv.workspace]
@@ -24,3 +26,8 @@ ideas-api = { workspace = true }
 ideas-repo = { workspace = true }
 permissions = { workspace = true }
 settings-repo = { workspace = true }
+cue-library = { workspace = true }
+cue-detection = { workspace = true }
+cue-player = { workspace = true }
+cue-detection-service = { workspace = true }
+cue-runtime = { workspace = true }

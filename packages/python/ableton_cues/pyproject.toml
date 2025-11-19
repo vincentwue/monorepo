@@ -12,6 +12,11 @@ authors = [
   { name = "Ableton Tools" }
 ]
 dependencies = [
+  "cue-library>=0.1.0",
+  "cue-detection>=0.1.0",
+  "cue-player>=0.1.0",
+  "cue-detection-service>=0.1.0",
+  "cue-runtime>=0.1.0",
   "loguru>=0.7",
   "numpy>=1.23",
   "scipy>=1.11"

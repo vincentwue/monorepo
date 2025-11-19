@@ -35,8 +35,10 @@ except Exception:
 
 START_SEED_LENGTH = 0.75
 START_SEED_GAIN = 2.2
+START_PREFIX_BOOST = 2.5
 STOP_SEED_LENGTH = 0.95
 STOP_SEED_GAIN = 2.0
+STOP_PREFIX_BOOST = 2.5
 
 
 def beats_to_seconds(beats: float, bpm: float) -> float:
@@ -594,19 +596,39 @@ class RecordingManager:
         return (arr * 32767).astype(np.int16).tobytes()
 
     def _unique_start_variant(self, stereo: np.ndarray, seed: int) -> np.ndarray:
+        """Keep the canonical start cue intact and append a per-take flourish before the Barker."""
         rng = np.random.default_rng(seed)
-        data = np.array(stereo, dtype=np.float32)
-        overlay_len = min(len(data), int(0.35 * 48000))
-        if overlay_len > 0:
-            overlay = rng.uniform(-0.25, 0.25, size=(overlay_len, data.shape[1])).astype(np.float32)
-            data[:overlay_len] = np.clip(data[:overlay_len] + overlay, -1.0, 1.0)
-        tone_len = int(0.25 * 48000)
-        t = np.linspace(0, 0.25, tone_len, endpoint=False, dtype=np.float32)
+        base = np.array(stereo, dtype=np.float32)
+        tail_len = int(0.28 * 48000)
+        t = np.linspace(0, tail_len / 48000.0, tail_len, endpoint=False, dtype=np.float32)
         freq = rng.uniform(650.0, 1400.0)
-        extra = (np.sin(2 * np.pi * freq * t) * rng.uniform(0.6, 0.9)).astype(np.float32)
-        extra = np.column_stack((extra, extra))
-        data = np.concatenate([data, extra], axis=0)
+        mod = np.sin(2 * np.pi * freq * t)
+        if rng.random() < 0.5:
+            mod += 0.25 * np.sin(2 * np.pi * freq * 0.5 * t + rng.uniform(0, np.pi))
+        mod = (mod * rng.uniform(0.55, 0.9)).astype(np.float32)
+        tail = np.column_stack((mod, mod))
+        tail = np.clip(tail, -1.0, 1.0)
+        data = np.concatenate([base, tail], axis=0)
         return np.clip(data, -1.0, 1.0)
+
+    def _unique_stop_variant(self, stereo: np.ndarray, seed: int) -> np.ndarray:
+        """Append a seeded flourish after the canonical end cue for detection compatibility."""
+        base = np.array(stereo, dtype=np.float32)
+        if mk_stop_unique is None or to_stereo is None:
+            return base
+        tail = to_stereo(mk_stop_unique(seed=seed))
+        tail = np.clip(tail, -1.0, 1.0)
+        data = np.concatenate([base, tail], axis=0)
+        return np.clip(data, -1.0, 1.0)
+
+    @staticmethod
+    def _boost_prefix(signal: np.ndarray, prefix_len: int, gain: float) -> np.ndarray:
+        if prefix_len <= 0 or gain <= 1.0:
+            return signal
+        prefix_len = min(prefix_len, len(signal))
+        boosted = np.array(signal, dtype=np.float32)
+        boosted[:prefix_len] = np.clip(boosted[:prefix_len] * float(gain), -1.0, 1.0)
+        return boosted
 
     def _write_combined_cue(self, path: str, segments: List[np.ndarray], *, samplerate: int = 48000) -> float:
         if not segments:
@@ -638,6 +660,7 @@ class RecordingManager:
                 dst_path = os.path.join(dst_dir, f"start_{suffix}.wav")
                 seed = int((self._t0_wall or time.time()) * 1000)
                 unique_start = self._unique_start_variant(start_f32, seed)
+                unique_start = self._boost_prefix(unique_start, len(start_f32), START_PREFIX_BOOST)
                 cp.play(unique_start)
                 segments.append(np.array(unique_start, dtype=np.float32))
 
@@ -683,7 +706,7 @@ class RecordingManager:
                     _start_path,
                     end_path,
                     _start_f32,
-                    _end_f32,
+                    end_f32,
                     _start_pcm,
                     _end_pcm,
                 ) = _legacy_ensure_refs(ref_dir=str(cue_dir))
@@ -691,7 +714,8 @@ class RecordingManager:
                 dst_dir = os.path.dirname(end_path) or str(cue_dir)
                 dst_path = os.path.join(dst_dir, f"stop_{suffix}.wav")
                 seed = int((self._t1_wall or time.time()) * 1000)
-                unique_end = to_stereo(mk_stop_unique(seed=seed))
+                unique_end = self._unique_stop_variant(end_f32, seed)
+                unique_end = self._boost_prefix(unique_end, len(end_f32), STOP_PREFIX_BOOST)
                 cp.play(unique_end)
                 segments.append(np.array(unique_end, dtype=np.float32))
 

@@ -23,11 +23,14 @@ if __package__ is None or __package__ == "":
     sys.path.append(str(this_file.parent.parent))
     from music_video_generation.postprocessing.audio_utils import read_wav_mono_any as read_wav_mono
     from music_video_generation.postprocessing.config import REF_DIR, FS, MIN_GAP_S
-    from packages.python.ableton_cues.detection import find_all_matches
 else:
     from .postprocessing.audio_utils import read_wav_mono_any as read_wav_mono
     from .postprocessing.config import REF_DIR, FS, MIN_GAP_S
-    from packages.python.ableton_cues.detection import find_all_matches
+
+try:
+    from cue_detection import find_all_matches
+except ImportError:  # pragma: no cover - workspace fallback
+    from packages.python.cue_detection import find_all_matches
 
 THRESHOLD_DEFAULT = 0.45
 THRESHOLD_MP3 = 0.3

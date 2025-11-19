@@ -1,0 +1,20 @@
+["build-system"]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cue-player"
+version = "0.1.0"
+description = "Shared CuePlayer implementation and playback helpers."
+requires-python = ">=3.9"
+authors = [
+  { name = "Ableton Tools" }
+]
+dependencies = [
+  "numpy>=1.23",
+  "cue-library>=0.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cue_player"]

@@ -7,13 +7,10 @@ ROOT = Path(__file__).resolve().parents[6]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from packages.python.ableton_cues.output import (
-    CueOutputService,
-    CueSpeakerSettings,
-    DEFAULT_VOLUME,
-    MIN_VOLUME,
-    MAX_VOLUME,
-)
+try:
+    from cue_runtime import CueOutputService, CueSpeakerSettings, DEFAULT_VOLUME, MIN_VOLUME, MAX_VOLUME
+except ImportError:  # pragma: no cover - workspace fallback
+    from packages.python.cue_runtime import CueOutputService, CueSpeakerSettings, DEFAULT_VOLUME, MIN_VOLUME, MAX_VOLUME
 
 __all__ = [
     "CueOutputService",

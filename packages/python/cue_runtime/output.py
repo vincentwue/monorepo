@@ -9,14 +9,27 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+try:
+    from cue_player import CuePlayer
+except ImportError:  # pragma: no cover - workspace fallback
+    from packages.python.cue_player import CuePlayer
+
 from .audio_output import AudioOutputSelector
-from .player import CuePlayer
 
 logger = logging.getLogger(__name__)
 
 SETTINGS_PATH = Path(__file__).with_name("cue_output_settings.json")
 ROOT_DIR = Path(__file__).resolve().parents[4]
-EXAMPLE_CUE_PATH = (ROOT_DIR / "apps" / "python" / "ableton_video_sync_server" / "music_video_generation" / "ableton" / "cue_refs" / "start.wav").resolve()
+EXAMPLE_CUE_PATH = (
+    ROOT_DIR
+    / "apps"
+    / "python"
+    / "ableton_video_sync_server"
+    / "music_video_generation"
+    / "ableton"
+    / "cue_refs"
+    / "start.wav"
+).resolve()
 
 DEFAULT_VOLUME = 1.0
 MIN_VOLUME = 0.0
@@ -41,7 +54,6 @@ class CueOutputService:
         self.example_cue_path = Path(example_cue_path) if example_cue_path else EXAMPLE_CUE_PATH
         self.settings_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # ------------------------------------------------------------------ helpers
     def _clamp_volume(self, value: float | int | None) -> float:
         if value is None:
             return DEFAULT_VOLUME
@@ -108,7 +120,6 @@ class CueOutputService:
         self._apply_player_settings(settings)
         return settings
 
-    # ---------------------------------------------------------------- public API
     def describe(self) -> Dict:
         settings = self.load_settings()
         outputs, recommended, warning = self._list_outputs()
@@ -161,7 +172,6 @@ class CueOutputService:
             cp.master_gain = previous_gain
             cp.device_index = previous_device
 
-    # -------------------------------------------------------------- audio utils
     def _load_example_audio(self) -> Tuple[np.ndarray, int]:
         if not self.example_cue_path.exists():
             raise FileNotFoundError(f"Example cue not found at {self.example_cue_path}")

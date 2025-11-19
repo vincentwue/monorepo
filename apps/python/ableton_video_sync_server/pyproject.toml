@@ -12,6 +12,11 @@ dependencies = [
   "loguru>=0.7.3",
   "scipy>=1.16.3",
   "annotated-doc>=0.0.4",
+  "cue-library>=0.1.0",
+  "cue-player>=0.1.0",
+  "cue-runtime>=0.1.0",
+  "cue-detection>=0.1.0",
+  "cue-detection-service>=0.1.0",
 ]
 
 [project.scripts]

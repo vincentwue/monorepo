@@ -1,0 +1,21 @@
+["build-system"]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cue-detection-service"
+version = "0.1.0"
+description = "Primary cue detection orchestration service built on cue-detection primitives."
+requires-python = ">=3.9"
+authors = [
+  { name = "Ableton Tools" }
+]
+dependencies = [
+  "loguru>=0.7",
+  "numpy>=1.23",
+  "cue-detection>=0.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cue_detection_service"]

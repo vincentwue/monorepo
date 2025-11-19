@@ -1,0 +1,22 @@
+["build-system"]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cue-runtime"
+version = "0.1.0"
+description = "Cue playback runtime helpers (preview + output management)."
+requires-python = ">=3.9"
+authors = [
+  { name = "Ableton Tools" }
+]
+dependencies = [
+  "loguru>=0.7",
+  "numpy>=1.23",
+  "cue-library>=0.1.0",
+  "cue-player>=0.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cue_runtime"]

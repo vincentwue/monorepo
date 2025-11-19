@@ -9,12 +9,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from music_video_generation.video_ingest.ingest_connector import IngestConnector
-from packages.python.ableton_cues import CueOutputService, RecordingCuePreviewer
+try:
+    from cue_runtime import CueOutputService, RecordingCuePreviewer
+except ImportError:  # pragma: no cover - workspace fallback
+    from packages.python.cue_runtime import CueOutputService, RecordingCuePreviewer
 from music_video_generation.ableton.recording_state import RecordingStateStore
 from music_video_generation.ableton.connection_service import AbletonConnectionService
 from music_video_generation.ableton.recording_runtime import start_recording_runtime, stop_recording_runtime
 from music_video_generation.postprocessing.postprocess_service import PostprocessService
-from packages.python.ableton_cues.services import PrimaryCueDetectionService
+try:
+    from cue_detection_service import PrimaryCueDetectionService
+except ImportError:  # pragma: no cover - workspace fallback
+    from packages.python.cue_detection_service import PrimaryCueDetectionService
 from music_video_generation.postprocessing.align_service import FootageAlignService
 logger.add(sys.stdout, level="INFO")
 logger.info("Server booted")

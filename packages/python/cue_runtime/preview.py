@@ -2,28 +2,53 @@ from __future__ import annotations
 
 import wave
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Mapping, Sequence, Tuple
 
 import numpy as np
-from loguru import logger
+try:
+    from loguru import logger
+except ImportError:  # pragma: no cover - fallback when loguru not installed
+        import logging
 
-from music_video_generation.ableton.ableton_recording import AbletonRecording
-from music_video_generation.ableton.recording_manager import (
-    START_SEED_GAIN,
-    START_SEED_LENGTH,
-    STOP_SEED_GAIN,
-    STOP_SEED_LENGTH,
-)
+        logger = logging.getLogger(__name__)
 
 try:
-    from .player import CuePlayer, mk_barker_bpsk, to_stereo, unique_cue
-    from .generation import ensure_refs as legacy_ensure_refs
-except Exception:  # pragma: no cover - playback backend not available during some tests
-    CuePlayer = None  # type: ignore
-    mk_barker_bpsk = None  # type: ignore
-    to_stereo = None  # type: ignore
-    unique_cue = None  # type: ignore
-    legacy_ensure_refs = None  # type: ignore
+    from music_video_generation.ableton.ableton_recording import AbletonRecording
+    from music_video_generation.ableton.recording_manager import (
+        START_SEED_GAIN,
+        START_SEED_LENGTH,
+        STOP_SEED_GAIN,
+        STOP_SEED_LENGTH,
+    )
+except ImportError:  # pragma: no cover - optional dependency
+    AbletonRecording = None  # type: ignore
+    START_SEED_GAIN = 1.0
+    START_SEED_LENGTH = 0.5
+    STOP_SEED_GAIN = 1.0
+    STOP_SEED_LENGTH = 0.5
+
+try:
+    from cue_player import CuePlayer, mk_barker_bpsk, to_stereo, unique_cue
+except ImportError:
+    try:
+        from packages.python.cue_player import CuePlayer, mk_barker_bpsk, to_stereo, unique_cue
+    except Exception:  # pragma: no cover
+        CuePlayer = None  # type: ignore
+        mk_barker_bpsk = None  # type: ignore
+        to_stereo = None  # type: ignore
+        unique_cue = None  # type: ignore
+
+try:
+    from cue_library import CueLibrary
+    from cue_library.constants import DEFAULT_SAMPLE_RATE
+except ImportError:
+    try:
+        from packages.python.cue_library import CueLibrary
+        from packages.python.cue_library.constants import DEFAULT_SAMPLE_RATE
+    except Exception:  # pragma: no cover
+        CueLibrary = None  # type: ignore
+        DEFAULT_SAMPLE_RATE = 48_000  # type: ignore
 
 
 def _beats_per_bar(ts_num: int, ts_den: int) -> float:
@@ -34,11 +59,22 @@ class RecordingCuePreviewer:
     """Recreate the Ableton cue sequence for previously captured recordings."""
 
     def __init__(self, default_cue_dir: Path | str | None = None) -> None:
+        if CueLibrary is None:
+            raise RuntimeError("cue_library is required for RecordingCuePreviewer.")
+        self._cue_library = CueLibrary(sample_rate=DEFAULT_SAMPLE_RATE, peak_db=0.0)
         if default_cue_dir:
             self._default_cue_dir = Path(default_cue_dir).expanduser().resolve()
         else:
             root = Path(__file__).resolve().parents[4]
-            self._default_cue_dir = root / "apps" / "python" / "ableton_video_sync_server" / "music_video_generation" / "ableton" / "cue_refs"
+            self._default_cue_dir = (
+                root
+                / "apps"
+                / "python"
+                / "ableton_video_sync_server"
+                / "music_video_generation"
+                / "ableton"
+                / "cue_refs"
+            )
 
     def play(
         self,
@@ -52,12 +88,10 @@ class RecordingCuePreviewer:
             raise ValueError("Action must be 'start' or 'stop'.")
         if CuePlayer is None or mk_barker_bpsk is None or to_stereo is None or unique_cue is None:
             raise RuntimeError("Cue playback backend is not available.")
-        if legacy_ensure_refs is None:
-            raise RuntimeError("Cue assets are unavailable.")
 
-        entry = recording if isinstance(recording, AbletonRecording) else AbletonRecording(**dict(recording))
+        entry = self._normalize_recording(recording)
         cue_dir = self._resolve_cue_dir(entry, project_path)
-        _start_path, _end_path, start_f32, end_f32, _start_pcm, _end_pcm = legacy_ensure_refs(ref_dir=str(cue_dir))
+        start_f32, end_f32 = self._prepare_templates(cue_dir)
 
         cp = CuePlayer.instance()
         bpb = _beats_per_bar(int(entry.ts_num), int(entry.ts_den))
@@ -91,7 +125,12 @@ class RecordingCuePreviewer:
                 recorded_seed=recorded_stop_seed,
             )
 
-    # ------------------------------------------------------------------ helpers
+    def _prepare_templates(self, cue_dir: Path) -> Tuple[np.ndarray, np.ndarray]:
+        self._cue_library.ensure_primary_references(target_dir=cue_dir)
+        start = self._cue_library.to_stereo(self._cue_library.start_cue())
+        end = self._cue_library.to_stereo(self._cue_library.end_cue())
+        return start, end
+
     def _resolve_cue_dir(self, entry: AbletonRecording, project_path: str | None) -> Path:
         candidates: list[str] = []
         if project_path:
@@ -215,9 +254,9 @@ class RecordingCuePreviewer:
             cp.play(stereo, samplerate=rate)
             return
 
-        unique_end = self._unique_variant(template, self._timestamp_seed(timestamp))
-        unique_dur = self._duration_from_audio(unique_end, cp.fs_out)
-        cp.play(unique_end)
+        unique_stop = self._unique_variant(template, self._timestamp_seed(timestamp))
+        unique_dur = self._duration_from_audio(unique_stop, cp.fs_out)
+        cp.play(unique_stop)
 
         barker = to_stereo(mk_barker_bpsk(chip_ms=18.0, carrier_hz=2400.0, fs=cp.fs_out)) * 1.2
         barker = np.clip(barker, -1.0, 1.0)
@@ -243,71 +282,65 @@ class RecordingCuePreviewer:
             )
             cp.play(seed_stereo)
 
-    def _load_saved_cue_audio(self, path: str | None) -> Tuple[np.ndarray, int, str] | None:
-        if not path:
-            return None
-        file_path = Path(path)
-        if not file_path.exists():
-            return None
-        with wave.open(str(file_path), "rb") as handle:
-            frames = handle.readframes(handle.getnframes())
-            width = handle.getsampwidth()
-            channels = handle.getnchannels()
-            rate = handle.getframerate()
-        if width == 1:
-            dtype = np.uint8
-            offset = 128.0
-            scale = 128.0
-        elif width == 2:
-            dtype = np.int16
-            offset = 0.0
-            scale = 32768.0
-        elif width == 4:
-            dtype = np.int32
-            offset = 0.0
-            scale = 2147483648.0
-        else:
-            raise RuntimeError(f"Unsupported cue sample width: {width}")
-        raw = np.frombuffer(frames, dtype=dtype).astype(np.float32)
-        if offset:
-            raw = (raw - offset) / scale
-        else:
-            raw = raw / scale
-        if channels == 1:
-            stereo = np.column_stack((raw, raw))
-        else:
-            arr = raw.reshape(-1, channels)
-            stereo = arr[:, :2]
-        return np.asarray(stereo, dtype=np.float32), rate, str(file_path)
-
-    def _load_recorded_sequence(self, entry: AbletonRecording, *, kind: str) -> Tuple[np.ndarray, int, str] | None:
+    def _load_recorded_sequence(self, entry: AbletonRecording, kind: str) -> Tuple[np.ndarray, int, str] | None:
         field = "start_combined_path" if kind == "start" else "end_combined_path"
-        path = getattr(entry, field, "") or None
-        if not path:
+        path = getattr(entry, field, "")
+        if not isinstance(path, str) or not path:
             return None
         try:
-            return self._load_saved_cue_audio(path)
-        except Exception:
+            stereo, rate = self._load_audio(path)
+            return stereo, rate, path
+        except Exception as exc:
+            logger.warning("RecordingCuePreviewer: failed to load %s cue sequence %s: %s", kind, path, exc)
             return None
 
-    def _load_recorded_seed(self, entry: AbletonRecording, *, kind: str) -> Tuple[np.ndarray, int, str] | None:
-        candidates: Sequence[str | None]
-        if kind == "start":
-            candidates = [
-                getattr(entry, "start_sound_path", "") or None,
-            ]
-        else:
-            candidates = [
-                getattr(entry, "end_sound_path", "") or None,
-            ]
-        for candidate in candidates:
-            try:
-                audio = self._load_saved_cue_audio(candidate)
-            except Exception:
-                continue
-            if audio is not None:
-                return audio
-        return None
+    def _load_recorded_seed(self, entry: AbletonRecording, kind: str) -> Tuple[np.ndarray, int, str] | None:
+        field = "start_sound_path" if kind == "start" else "end_sound_path"
+        path = getattr(entry, field, "")
+        if not isinstance(path, str) or not path:
+            return None
+        try:
+            stereo, rate = self._load_audio(path)
+            return stereo, rate, path
+        except Exception as exc:
+            logger.warning("RecordingCuePreviewer: failed to load %s cue seed %s: %s", kind, path, exc)
+            return None
+
+    @staticmethod
+    def _load_audio(path: str) -> Tuple[np.ndarray, int]:
+        with wave.open(path, "rb") as handle:
+            frames = handle.readframes(handle.getnframes())
+            sample_width = handle.getsampwidth()
+            dtype, scale, offset = RecordingCuePreviewer._dtype_for_width(sample_width)
+            raw = np.frombuffer(frames, dtype=dtype).astype(np.float32)
+            raw = (raw - offset) / scale if offset else raw / scale
+            channels = handle.getnchannels()
+            if channels == 1:
+                stereo = np.repeat(raw.reshape(-1, 1), 2, axis=1)
+            else:
+                stereo = raw.reshape(-1, channels)
+                if channels > 2:
+                    stereo = stereo[:, :2]
+            return stereo, handle.getframerate()
+
+    @staticmethod
+    def _dtype_for_width(width: int) -> Tuple[np.dtype, float, float]:
+        if width == 1:
+            return np.uint8, 128.0, 128.0
+        if width == 2:
+            return np.int16, 32768.0, 0.0
+        if width == 4:
+            return np.int32, 2147483648.0, 0.0
+        raise RuntimeError(f"Unsupported sample width: {width}")
+
+
+    def _normalize_recording(self, recording: AbletonRecording | Mapping[str, object]):
+        if AbletonRecording is not None and isinstance(recording, AbletonRecording):
+            return recording
+        payload = dict(recording) if isinstance(recording, Mapping) else dict(recording.__dict__)
+        if AbletonRecording is not None:
+            return AbletonRecording(**payload)
+        return SimpleNamespace(**payload)
 
 
 __all__ = ["RecordingCuePreviewer"]

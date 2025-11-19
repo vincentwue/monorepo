@@ -1,10 +1,17 @@
-from .audio_output import AudioOutputSelector
+try:
+    from cue_runtime import AudioOutputSelector, CueOutputService, CueSpeakerSettings, RecordingCuePreviewer
+except ImportError:  # pragma: no cover - workspace fallback
+    from packages.python.cue_runtime import AudioOutputSelector, CueOutputService, CueSpeakerSettings, RecordingCuePreviewer
 from .player import CuePlayer, unique_cue, mk_barker_bpsk, to_stereo, FS
-from .preview import RecordingCuePreviewer
-from .output import CueOutputService, CueSpeakerSettings
 from .generation import ensure_refs, ensure_stop_ref, mk_stop_unique
-from .detection import gather_reference_library, compute_matches, build_segments
-from .services import PrimaryCueDetectionService
+try:
+    from cue_detection import gather_reference_library, compute_matches, build_segments
+except ImportError:  # pragma: no cover - workspace fallback
+    from packages.python.cue_detection import gather_reference_library, compute_matches, build_segments
+try:
+    from cue_detection_service import PrimaryCueDetectionService
+except ImportError:  # pragma: no cover - workspace fallback
+    from packages.python.cue_detection_service import PrimaryCueDetectionService
 
 __all__ = [
     "AudioOutputSelector",

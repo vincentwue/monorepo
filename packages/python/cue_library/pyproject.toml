@@ -1,0 +1,19 @@
+["build-system"]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cue-library"
+version = "0.1.0"
+description = "Reusable cue generation primitives."
+requires-python = ">=3.9"
+authors = [
+  { name = "Ableton Tools" }
+]
+dependencies = [
+  "numpy>=1.23"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cue_library"]

@@ -16,7 +16,7 @@
       "path": "/storage/emulated/0/DCIM/Camera",
       "adb_serial": "2A101FDH2006TG",
       "created_at": "2025-11-18T23:35:02.518735+00:00",
-      "last_ingested_at": "2025-11-19T15:41:07.030377+00:00"
+      "last_ingested_at": "2025-11-19T20:40:53.042310+00:00"
     }
   ],
   "runs": [
@@ -336,6 +336,67 @@
       "error": null,
       "started_at": "2025-11-19T15:40:57.318707+00:00",
       "completed_at": "2025-11-19T15:41:07.062796+00:00",
+      "only_today": true
+    },
+    {
+      "id": "396f5eeb-71ed-405c-a873-9d043d8210cf",
+      "project_path": "D:\\music_video_generation\\water",
+      "device_ids": [
+        "f1e56325-9954-4c8d-bc8a-3e19d19296b2"
+      ],
+      "status": "completed",
+      "copied_files": [
+        "D:\\music_video_generation\\water\\footage\\videos\\vincent_phone\\PXL_20251119_192002736.TS.mp4",
+        "D:\\music_video_generation\\water\\footage\\videos\\vincent_phone\\PXL_20251119_192031637.TS.mp4"
+      ],
+      "error": null,
+      "started_at": "2025-11-19T19:21:32.837240+00:00",
+      "completed_at": "2025-11-19T19:21:37.273476+00:00",
+      "only_today": true
+    },
+    {
+      "id": "e626a6c9-3cd0-4581-a708-c66c267f280f",
+      "project_path": "D:\\music_video_generation\\water",
+      "device_ids": [
+        "f1e56325-9954-4c8d-bc8a-3e19d19296b2"
+      ],
+      "status": "completed",
+      "copied_files": [
+        "D:\\music_video_generation\\water\\footage\\videos\\vincent_phone\\PXL_20251119_194453633.TS.mp4"
+      ],
+      "error": null,
+      "started_at": "2025-11-19T19:45:23.038048+00:00",
+      "completed_at": "2025-11-19T19:45:24.889761+00:00",
+      "only_today": true
+    },
+    {
+      "id": "aaa5dca5-fa89-4e86-b08e-b530b74249fb",
+      "project_path": "D:\\music_video_generation\\water",
+      "device_ids": [
+        "f1e56325-9954-4c8d-bc8a-3e19d19296b2"
+      ],
+      "status": "completed",
+      "copied_files": [
+        "D:\\music_video_generation\\water\\footage\\videos\\vincent_phone\\PXL_20251119_195109832.TS.mp4"
+      ],
+      "error": null,
+      "started_at": "2025-11-19T19:51:52.732702+00:00",
+      "completed_at": "2025-11-19T19:51:54.611354+00:00",
+      "only_today": true
+    },
+    {
+      "id": "de357522-0592-4df9-a56d-c4ecfa601f49",
+      "project_path": "D:\\music_video_generation\\water",
+      "device_ids": [
+        "f1e56325-9954-4c8d-bc8a-3e19d19296b2"
+      ],
+      "status": "completed",
+      "copied_files": [
+        "D:\\music_video_generation\\water\\footage\\videos\\vincent_phone\\PXL_20251119_203951243.TS.mp4"
+      ],
+      "error": null,
+      "started_at": "2025-11-19T20:40:50.184506+00:00",
+      "completed_at": "2025-11-19T20:40:53.057878+00:00",
       "only_today": true
     }
   ]

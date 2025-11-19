@@ -3,7 +3,7 @@ import wave
 import numpy as np
 import pytest
 
-from packages.python.ableton_cues.preview import RecordingCuePreviewer
+from packages.python.cue_runtime.preview import RecordingCuePreviewer
 from music_video_generation.ableton.ableton_recording import AbletonRecording
 
 
@@ -66,16 +66,13 @@ def stub_player(monkeypatch):
         def instance(cls):
             return cls._instance
 
-    monkeypatch.setattr("packages.python.ableton_cues.preview.CuePlayer", _StubWrapper)
-    monkeypatch.setattr("packages.python.ableton_cues.preview.mk_barker_bpsk", lambda **kwargs: np.zeros(8, dtype=np.float32))
-    monkeypatch.setattr("packages.python.ableton_cues.preview.unique_cue", lambda *args, **kwargs: np.zeros(8, dtype=np.float32))
-
-    def fake_legacy(_ref_dir):
-        start = np.zeros((4, 2), dtype=np.float32)
-        end = np.zeros((4, 2), dtype=np.float32)
-        return ("start.wav", "end.wav", start, end, b"", b"")
-
-    monkeypatch.setattr("packages.python.ableton_cues.preview.legacy_ensure_refs", fake_legacy)
+    monkeypatch.setattr("packages.python.cue_runtime.preview.CuePlayer", _StubWrapper)
+    monkeypatch.setattr("packages.python.cue_runtime.preview.mk_barker_bpsk", lambda **kwargs: np.zeros(8, dtype=np.float32))
+    monkeypatch.setattr("packages.python.cue_runtime.preview.unique_cue", lambda *args, **kwargs: np.zeros(8, dtype=np.float32))
+    monkeypatch.setattr(
+        "packages.python.cue_runtime.preview.RecordingCuePreviewer._prepare_templates",
+        lambda self, cue_dir: (np.zeros((4, 2), dtype=np.float32), np.zeros((4, 2), dtype=np.float32)),
+    )
     return instance
 
 
@@ -105,4 +102,3 @@ def test_preview_replays_recorded_stop_seed(tmp_path, stub_player):
     played_data, played_rate = stub_player.calls[-1]
     np.testing.assert_allclose(played_data, recorded, atol=1e-6)
     assert played_rate == rate
-
