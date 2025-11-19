@@ -15,6 +15,7 @@ class FootageAlignService:
 
     AUDIO_EXTS = (".wav", ".mp3", ".m4a", ".aac", ".flac", ".aiff")
     VIDEO_EXTS = (".mp4", ".mkv", ".mov", ".ts", ".mts", ".m4v", ".avi", ".webm")
+    MAX_ABSOLUTE_OFFSET_S = 30.0
 
     def _resolve_project(self, project_path: str) -> Path:
         root = Path(project_path or "").expanduser().resolve()
@@ -281,7 +282,16 @@ class FootageAlignService:
                     abs_offset = self._resolve_absolute_cue(cue_id, recordings)
             absolute_component = 0.0
             if abs_offset is not None and audio_abs is not None:
-                absolute_component = abs_offset - audio_abs
+                delta = abs_offset - audio_abs
+                if abs(delta) <= self.MAX_ABSOLUTE_OFFSET_S:
+                    absolute_component = delta
+                else:
+                    logger.debug(
+                        "Align: ignoring absolute offset delta %.3fs for %s (beyond max %.1fs)",
+                        delta,
+                        video,
+                        self.MAX_ABSOLUTE_OFFSET_S,
+                    )
             relative_component = cue_offset - audio_entry_offset
             combined_offset = absolute_component + relative_component
             trim_start = max(0.0, combined_offset)
