@@ -1,13 +1,18 @@
+// apps/ableton_video_sync/src/align/AlignFootagePanel.tsx
+
 import { useEffect, useState } from 'react'
-import { fetchAlignState, runFootageAlignment, type AlignFootageResult } from '../lib/alignApi'
+import { fetchAlignState, runFootageAlignment } from '../lib/alignApi'
 import { openProjectFile, openProjectFolder } from '../lib/systemApi'
+import type { AlignFootageResult, AlignSegmentResult } from '../lib/types'
 
 type AlignFootagePanelProps = {
   activeProjectPath: string | null
 }
 
 const formatSeconds = (value?: number | null) =>
-  typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(2)}s` : '—'
+  typeof value === 'number' && Number.isFinite(value)
+    ? `${value.toFixed(2)}s`
+    : '—'
 
 export function AlignFootagePanel({ activeProjectPath }: AlignFootagePanelProps) {
   const [audioPath, setAudioPath] = useState('')
@@ -22,8 +27,10 @@ export function AlignFootagePanel({ activeProjectPath }: AlignFootagePanelProps)
       setResult(null)
       return
     }
+
     let cancelled = false
     setLoadingState(true)
+
     fetchAlignState(activeProjectPath)
       .then((payload) => {
         if (!cancelled) {
@@ -37,26 +44,25 @@ export function AlignFootagePanel({ activeProjectPath }: AlignFootagePanelProps)
         }
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoadingState(false)
-        }
+        if (!cancelled) setLoadingState(false)
       })
+
     return () => {
       cancelled = true
     }
   }, [activeProjectPath])
 
   const handleRun = async () => {
-    if (!activeProjectPath) {
-      return
-    }
+    if (!activeProjectPath) return
+
     setRunning(true)
     setError(null)
     setMessage(null)
+
     try {
       const payload = await runFootageAlignment(activeProjectPath, audioPath)
       setResult(payload)
-      setMessage(`Aligned ${payload.videos_processed} clip(s).`)
+      setMessage(`Aligned ${payload.segments_aligned} segment(s).`)
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : 'Failed to align footage.')
@@ -86,8 +92,8 @@ export function AlignFootagePanel({ activeProjectPath }: AlignFootagePanelProps)
         <div>
           <h2>Align footage</h2>
           <p>
-            Trim every clip to the master audio length and pad with black where necessary. Each output contains the
-            master audio so the files can be dropped into Resolve or any NLE.
+            Aligns each detected <strong>segment</strong> to the master audio. Produces one aligned output per
+            detected take.
           </p>
         </div>
         <button className="ghost-button" type="button" onClick={handleRun} disabled={running}>
@@ -98,21 +104,20 @@ export function AlignFootagePanel({ activeProjectPath }: AlignFootagePanelProps)
       <div className="align-form">
         <label htmlFor="align-audio-path">
           Audio file override (optional)
-          <small>Leave empty to use the first clip from footage/music.</small>
+          <small>Leave empty to use the track in footage/music.</small>
         </label>
         <input
           id="align-audio-path"
           type="text"
           value={audioPath}
           onChange={(event) => setAudioPath(event.target.value)}
-          placeholder="D:\path\to\mixdown.wav"
+          placeholder="D:\\path\\to\\mixdown.wav"
           disabled={running}
         />
       </div>
 
       {error && <p className="inline-message inline-message--error">{error}</p>}
       {message && !error && <p className="inline-message">{message}</p>}
-
       {loadingState && !running && <p className="inline-message">Loading last alignment…</p>}
 
       {result && (
@@ -122,14 +127,17 @@ export function AlignFootagePanel({ activeProjectPath }: AlignFootagePanelProps)
               <span>Audio source</span>
               <strong>{result.audio_path || '—'}</strong>
             </div>
+
             <div className="status-card">
               <span>Audio duration</span>
               <strong>{formatSeconds(result.audio_duration)}</strong>
             </div>
+
             <div className="status-card">
-              <span>Clips processed</span>
-              <strong>{result.videos_processed}</strong>
+              <span>Segments aligned</span>
+              <strong>{result.segments_aligned}</strong>
             </div>
+
             <div className="status-card">
               <span>Output folder</span>
               <button className="ghost-button" type="button" onClick={openOutputDirectory}>
@@ -138,83 +146,61 @@ export function AlignFootagePanel({ activeProjectPath }: AlignFootagePanelProps)
             </div>
           </div>
 
+          {/* MAIN TABLE */}
           <table className="recordings-table">
             <thead>
               <tr>
-                <th>Source</th>
-                <th>Aligned clip</th>
-                <th>Trim start</th>
-                <th>Pad start</th>
-                <th>Padded tail</th>
-                <th>Used duration</th>
+                <th>Video</th>
+                <th>Segment</th>
+                <th>Take ID</th>
+                <th>Tracks</th>
+                <th>Duration</th>
+                <th>Output</th>
                 <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
-              {result.results.map((entry) => (
-                <tr key={entry.output}>
-                  <td>{entry.source}</td>
-                  <td>{entry.output}</td>
-                  <td>{formatSeconds(entry.trim_start)}</td>
-                  <td>{formatSeconds(entry.pad_start)}</td>
-                  <td>{formatSeconds(entry.pad_end)}</td>
-                  <td>{formatSeconds(entry.used_duration)}</td>
+              {result.results.map((seg: AlignSegmentResult) => (
+                <tr key={seg.output_path}>
+                  <td>{seg.source_video}</td>
+                  <td>#{seg.segment_index}</td>
+
+                  <td>{seg.recording_id || '—'}</td>
+
+                  <td>{seg.track_names?.join(', ') || '—'}</td>
+
+                  <td>{formatSeconds(seg.segment_duration_s)}</td>
+
+                  <td>{seg.output_path}</td>
+
                   <td>
-                    <button className="ghost-button" type="button" onClick={() => openProjectFile(entry.output)}>
+                    <button
+                      className="ghost-button"
+                      type="button"
+                      onClick={() => openProjectFile(seg.output_path)}
+                    >
                       Open file
                     </button>
                   </td>
                 </tr>
               ))}
+
               {result.results.length === 0 && (
                 <tr>
                   <td colSpan={7}>
-                    <p className="empty-state">No clips were aligned. Check postprocess results first.</p>
+                    <p className="empty-state">No segments aligned. Check postprocess + primary cues.</p>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
 
-          {result.debug && result.debug.length > 0 && (
+          {/* DEBUG */}
+          {result.debug?.length > 0 && (
             <div className="align-debug">
-              <h4>Alignment details</h4>
-              <table className="recordings-table">
-                <thead>
-                  <tr>
-                    <th>File</th>
-                    <th>Video cue (s)</th>
-                    <th>Audio cue (s)</th>
-                    <th>Video abs (s)</th>
-                    <th>Audio abs (s)</th>
-                    <th>Absolute delta (s)</th>
-                    <th>Relative delta (s)</th>
-                    <th>Combined offset (s)</th>
-                    <th>Trim start (s)</th>
-                    <th>Pad start (s)</th>
-                    <th>Pad end (s)</th>
-                    <th>Video length (s)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.debug.map((row, index) => (
-                    <tr key={`debug-${index}-${row.file}`}>
-                      <td>{row.file}</td>
-                      <td>{formatSeconds(row.video_cue)}</td>
-                      <td>{formatSeconds(row.audio_cue)}</td>
-                      <td>{formatSeconds(row.video_abs)}</td>
-                      <td>{formatSeconds(row.audio_abs)}</td>
-                      <td>{formatSeconds(row.absolute_component)}</td>
-                      <td>{formatSeconds(row.relative_component)}</td>
-                      <td>{formatSeconds(row.relative_offset)}</td>
-                      <td>{formatSeconds(row.trim_start)}</td>
-                      <td>{formatSeconds(row.pad_start)}</td>
-                      <td>{formatSeconds(row.pad_end)}</td>
-                      <td>{formatSeconds(row.video_duration)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <h4>Debug details</h4>
+              <pre>{JSON.stringify(result.debug, null, 2)}</pre>
             </div>
           )}
         </div>

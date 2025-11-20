@@ -17,10 +17,8 @@ from music_video_generation.ableton.recording_state import RecordingStateStore
 from music_video_generation.ableton.connection_service import AbletonConnectionService
 from music_video_generation.ableton.recording_runtime import start_recording_runtime, stop_recording_runtime
 from music_video_generation.postprocessing.postprocess_service import PostprocessService
-try:
-    from cue_detection_service import PrimaryCueDetectionService
-except ImportError:  # pragma: no cover - workspace fallback
-    from packages.python.cue_detection_service import PrimaryCueDetectionService
+from packages.python.cue_detection_service import PrimaryCueDetectionService
+
 from music_video_generation.postprocessing.align_service import FootageAlignService
 from music_video_generation.multi_video_generator.pipeline import (
     render_auto_bar_edit,
@@ -633,6 +631,7 @@ def primary_cue_run(payload: PrimaryCueRunRequest) -> dict:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 
 
 @app.post("/primary-cues/reset")
