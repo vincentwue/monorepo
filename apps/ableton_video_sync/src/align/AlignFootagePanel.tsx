@@ -144,10 +144,10 @@ export function AlignFootagePanel({ activeProjectPath }: AlignFootagePanelProps)
                 <th>Source</th>
                 <th>Aligned clip</th>
                 <th>Trim start</th>
-                 <th>Pad start</th>
-                 <th>Padded tail</th>
-                 <th>Used duration</th>
-                 <th>Actions</th>
+                <th>Pad start</th>
+                <th>Padded tail</th>
+                <th>Used duration</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -197,8 +197,8 @@ export function AlignFootagePanel({ activeProjectPath }: AlignFootagePanelProps)
                   </tr>
                 </thead>
                 <tbody>
-                  {result.debug.map((row) => (
-                    <tr key={`debug-${row.file}`}>
+                  {result.debug.map((row, index) => (
+                    <tr key={`debug-${index}-${row.file}`}>
                       <td>{row.file}</td>
                       <td>{formatSeconds(row.video_cue)}</td>
                       <td>{formatSeconds(row.audio_cue)}</td>
