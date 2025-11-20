@@ -25,6 +25,9 @@ except ImportError:  # pragma: no cover - workspace fallback
 from . import matching, project, references
 
 
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg"}
+
+
 class PrimaryCueDetectionService:
     SECONDARY_THRESHOLD_SCALE = 0.8
     SECONDARY_MIN_GAP_S = 0.05
@@ -57,13 +60,16 @@ class PrimaryCueDetectionService:
         root = project.resolve_project(project_path)
         key = f"primary::{root}"
         params = self._normalize_params(threshold=threshold, min_gap_s=min_gap_s)
+
         targets = None
         if files:
             targets = {Path(f).expanduser().resolve() for f in files if f}
+
         with self._lock:
             job = self._jobs.get(key)
             if job and job.get("status") == "running":
                 raise ValueError("Primary cue detection already running for this project.")
+
             job = {
                 "status": "running",
                 "started_at": datetime.now(UTC).isoformat(),
@@ -75,6 +81,7 @@ class PrimaryCueDetectionService:
             if targets:
                 job["targets"] = [str(p) for p in targets]
             self._jobs[key] = job
+
             project.append_log(
                 root,
                 "Primary cue detection started (threshold=%.2f gap=%.2f targets=%s)"
@@ -84,7 +91,13 @@ class PrimaryCueDetectionService:
                     ",".join(str(p) for p in targets) if targets else "all",
                 ),
             )
-            threading.Thread(target=self._worker, args=(root, key, params, targets), daemon=True).start()
+
+            threading.Thread(
+                target=self._worker,
+                args=(root, key, params, targets),
+                daemon=True,
+            ).start()
+
         return job
 
     def state(self, project_path: str) -> Dict:
@@ -111,6 +124,10 @@ class PrimaryCueDetectionService:
         if results_path.exists():
             results_path.unlink()
         return self.state(project_path)
+
+    # ------------------------------------------------------------------
+    # Worker
+    # ------------------------------------------------------------------
 
     def _worker(
         self,
@@ -158,6 +175,7 @@ class PrimaryCueDetectionService:
         refs_dir = project.reference_dir(root)
         primary_refs = references.load_primary_refs(refs_dir)
         secondary_refs = references.load_secondary_refs(refs_dir)
+
         project.append_log(
             root,
             "Prepared %d primary start refs, %d end refs (threshold=%.2f gap=%.2f)"
@@ -188,12 +206,17 @@ class PrimaryCueDetectionService:
                         "pairs": [],
                         "start_hits": [],
                         "end_hits": [],
+                        "elapsed_s": 0.0,
                         "notes": [f"error: {exc}"],
                     }
                 )
             job["progress"]["processed"] = index
 
         return media_results
+
+    # ------------------------------------------------------------------
+    # Single file
+    # ------------------------------------------------------------------
 
     def _process_file(
         self,
@@ -203,17 +226,51 @@ class PrimaryCueDetectionService:
         secondary_refs: Dict[str, List[Dict]],
         params: Dict[str, float],
     ) -> Dict:
+        """
+        Process one media file:
+          - Extract mono 48k audio.
+          - Run primary cue matching.
+          - Build segments.
+          - Run secondary matching.
+          - Build final pairs.
+
+        IMPORTANT: for *video* files we strip generic fallback 'end.wav'
+        from end hits. This prevents 'end.wav' from hijacking camera
+        segments – it remains allowed only for audio exports (mp3/wav).
+        """
         t0 = time.perf_counter()
+
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td) / "audio.wav"
             extract_audio_48k(str(file_path), tmp)
             rec, _fs = read_wav_mono(tmp)
+
         duration = get_media_duration(str(file_path)) or len(rec) / FS
         matches = compute_matches(rec, primary_refs, params["threshold"], params["min_gap_s"])
-        start_hits = matches.get("start", [])
-        end_hits = matches.get("end", [])
+
+        start_hits = matches.get("start", []) or []
+        raw_end_hits = matches.get("end", []) or []
+
+        suffix = file_path.suffix.lower()
+        is_audio = suffix in AUDIO_EXTENSIONS
+
+        if is_audio:
+            end_hits = raw_end_hits
+        else:
+            # VIDEO: drop generic fallback end cues (e.g. 'end.wav')
+            end_hits = [h for h in raw_end_hits if not matching._is_fallback_end(h)]
+            if raw_end_hits and not end_hits:
+                logger.info(
+                    "primary-cues: %s had only fallback end hits (%d), "
+                    "dropping them for video segments.",
+                    file_path.name,
+                    len(raw_end_hits),
+                )
+
         segments = build_segments(start_hits, end_hits, duration)
+
         secondary_threshold = max(0.05, params["threshold"] * self.SECONDARY_THRESHOLD_SCALE)
+
         start_pairs = self._matcher.find_secondary_matches(
             rec,
             secondary_refs.get("start") or [],
@@ -228,22 +285,26 @@ class PrimaryCueDetectionService:
             threshold=secondary_threshold,
             is_start=False,
         )
+
         pairs = matching.build_pairs(segments, start_hits, end_hits, start_pairs, end_pairs)
 
         max_start_score = max((hit.get("score", 0.0) for hit in start_hits), default=0.0)
         max_end_score = max((hit.get("score", 0.0) for hit in end_hits), default=0.0)
+
         logger.info(
-            "primary-cues: %s start_hits=%d (max=%.3f) end_hits=%d (max=%.3f)",
+            "primary-cues: %s start_hits=%d (max=%.3f) end_hits=%d (max=%.3f) [audio=%s]",
             file_path.name,
             len(start_hits),
             max_start_score,
             len(end_hits),
             max_end_score,
+            is_audio,
         )
+
         project.append_log(
             project_root,
-            "%s start_hits=%d (max=%.3f) end_hits=%d (max=%.3f)"
-            % (file_path.name, len(start_hits), max_start_score, len(end_hits), max_end_score),
+            "%s start_hits=%d (max=%.3f) end_hits=%d (max=%.3f) [audio=%s]"
+            % (file_path.name, len(start_hits), max_start_score, len(end_hits), max_end_score, is_audio),
         )
 
         rel_path = file_path
