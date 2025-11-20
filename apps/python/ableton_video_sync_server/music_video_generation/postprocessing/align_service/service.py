@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Dict, Optional, List
+
 from loguru import logger
 
 from .audio import resolve_audio, probe_duration
@@ -16,22 +17,23 @@ VIDEO_EXTS = (".mp4", ".mkv", ".mov", ".ts", ".mts", ".m4v", ".avi", ".webm")
 
 
 class FootageAlignService:
-
     # ---------------------------------------------------------
     # Public API
     # ---------------------------------------------------------
     def align(self, project_path: str, *, audio_path: Optional[str] = None) -> Dict:
         root = self._resolve_project(project_path)
 
+        # 1) pick / resolve master audio
         audio = resolve_audio(root, audio_path)
         audio_dur = probe_duration(audio)
 
+        # 2) load postprocess (cues for audio + video) and recordings
         post = load_postprocess(root)
         media_entries = post.get("media") or []
 
         recordings = load_recordings(root)
 
-        # find audio cue
+        # 3) find audio cue in the chosen master audio file
         audio_entry = self._find_postprocess_entry_for_path(media_entries, audio)
         if not audio_entry:
             raise RuntimeError("Audio not part of postprocess—run postprocess again.")
@@ -43,35 +45,42 @@ class FootageAlignService:
         logger.info("Aligning: audio cue at %.3fs", audio_cue)
 
         output_dir = root / "generated" / "aligned"
-        results = []
-        debug = []
+        results: List[Dict] = []
+        debug: List[Dict] = []
 
-        # -----------------------------------------
-        # per-video/per-segment alignment
-        # -----------------------------------------
+        # -----------------------------------------------------
+        # per-video / per-segment alignment
+        # -----------------------------------------------------
         for entry in media_entries:
             f = entry.get("file")
             if not f:
                 continue
+
             video = Path(f)
             if video.suffix.lower() not in VIDEO_EXTS:
+                # skip audio entries etc.
                 continue
             if not video.exists():
+                logger.warning("Align: skipping missing video %s", video)
                 continue
 
             segments = entry.get("segments") or []
             if not segments:
+                logger.debug("Align: no segments for %s; skipping", video)
                 continue
 
             video_dur = probe_duration(video)
 
-            # match recording early (may fallback later)
+            # match Ableton recording for this clip (we can refine later, per segment)
             start_hits = entry.get("start_hits", [])
             end_hits = entry.get("end_hits", [])
 
+            # use the *first* segment for identity matching; if needed we can
+            # later extend this to per-segment matching
+            first_seg = segments[0]
             matched_recording = find_recording_for_segment(
-                seg_start=segments[0].get("start_time_s", 0),
-                seg_end=segments[0].get("end_time_s"),
+                seg_start=first_seg.get("start_time_s", 0),
+                seg_end=first_seg.get("end_time_s"),
                 start_hits=start_hits,
                 end_hits=end_hits,
                 recordings=recordings,
@@ -79,11 +88,17 @@ class FootageAlignService:
 
             for seg in segments:
                 seg_index = int(seg.get("index") or 0)
-                seg_start = float(seg["start_time_s"])
-                seg_end = seg.get("end_time_s")
-                seg_end = float(seg_end) if isinstance(seg_end, (int, float)) else None
+                # must have a segment start
+                try:
+                    seg_start = float(seg["start_time_s"])
+                except (KeyError, TypeError, ValueError):
+                    logger.debug("Align: skipping segment without start_time_s in %s", video)
+                    continue
 
-                # compute relative offset
+                seg_end_val = seg.get("end_time_s")
+                seg_end = float(seg_end_val) if isinstance(seg_end_val, (int, float)) else None
+
+                # relative offset: where this segment's cue sits vs audio cue
                 relative_offset = seg_start - audio_cue
                 trim_start = max(0.0, relative_offset)
                 pad_start = max(0.0, -relative_offset)
@@ -92,21 +107,46 @@ class FootageAlignService:
                 if seg_end is not None:
                     seg_duration = max(0.0, seg_end - seg_start)
                 else:
+                    # if missing end, assume rest of video from seg_start
                     seg_duration = max(0.0, video_dur - seg_start)
 
+                # available video after trimming (do not run into later segments)
                 available = min(seg_duration, max(0.0, video_dur - trim_start))
                 if available < 0.25:
+                    logger.debug(
+                        "Align: skipping segment %d of %s (available=%.3fs)",
+                        seg_index,
+                        video,
+                        available,
+                    )
                     continue
 
-                # audio usable portion
+                # usable part of audio (after possible head pad)
                 usable_audio = max(0.0, audio_dur - pad_start)
                 used_duration = min(usable_audio, available)
+                if used_duration < 0.25:
+                    logger.debug(
+                        "Align: skipping segment %d of %s (used_duration=%.3fs)",
+                        seg_index,
+                        video,
+                        used_duration,
+                    )
+                    continue
+
                 pad_end = max(0.0, audio_dur - pad_start - used_duration)
 
                 out_file = output_dir / f"{video.stem}_seg{seg_index:03d}_aligned.mp4"
-                run_ffmpeg(video, audio, trim_start, audio_dur, pad_start, pad_end, out_file)
+                run_ffmpeg(
+                    video=video,
+                    audio=audio,
+                    trim_start=trim_start,
+                    total_duration=audio_dur,
+                    pad_start=pad_start,
+                    pad_end=pad_end,
+                    output=out_file,
+                )
 
-                meta = {
+                meta: Dict[str, object] = {
                     "source_video": str(video),
                     "segment_index": seg_index,
                     "segment_start_s": seg_start,
@@ -121,14 +161,14 @@ class FootageAlignService:
                         "missing_end": bool(seg.get("edge_case") == "missing_end"),
                         "too_short": used_duration < 1.0,
                         "usable": used_duration >= 1.0,
-                        "confidence": 0.0,
+                        "confidence": 0.0,  # can be wired from cue scores later
                     },
                 }
 
-                # attach Ableton recording metadata
+                # attach Ableton recording metadata (if we found a match)
                 if matched_recording:
                     meta["recording_id"] = matched_recording.get("id")
-                    meta["track_names"] = matched_recording.get("recording_track_names", [])
+                    meta["track_names"] = matched_recording.get("recording_track_names", []) or []
                     meta["recording_start_sound"] = matched_recording.get("start_sound_path")
                     meta["recording_end_sound"] = matched_recording.get("end_sound_path")
                 else:
@@ -139,22 +179,24 @@ class FootageAlignService:
 
                 results.append(meta)
 
-                debug.append({
-                    "file": str(video),
-                    "segment_index": seg_index,
-                    "video_cue": seg_start,
-                    "audio_cue": audio_cue,
-                    "relative_offset": relative_offset,
-                    "trim_start": trim_start,
-                    "pad_start": pad_start,
-                    "pad_end": pad_end,
-                    "video_duration": video_dur,
-                    "segment_end_s": seg_end,
-                    "segment_duration_s": seg_duration,
-                    "used_duration": used_duration,
-                })
+                debug.append(
+                    {
+                        "file": str(video),
+                        "segment_index": seg_index,
+                        "video_cue": seg_start,
+                        "audio_cue": audio_cue,
+                        "relative_offset": relative_offset,
+                        "trim_start": trim_start,
+                        "pad_start": pad_start,
+                        "pad_end": pad_end,
+                        "video_duration": video_dur,
+                        "segment_end_s": seg_end,
+                        "segment_duration_s": seg_duration,
+                        "used_duration": used_duration,
+                    }
+                )
 
-        payload = {
+        payload: Dict[str, object] = {
             "project_path": str(root),
             "audio_path": str(audio),
             "audio_duration": audio_dur,
@@ -167,6 +209,13 @@ class FootageAlignService:
         write_state(root, payload)
         return payload
 
+    def state(self, project_path: str) -> Dict:
+        """
+        Read-only access for the UI: returns the last alignment_results.json.
+        """
+        root = self._resolve_project(project_path)
+        return read_state(root)
+
     # ---------------------------------------------------------
     # Internals
     # ---------------------------------------------------------
@@ -178,9 +227,13 @@ class FootageAlignService:
 
     def _find_postprocess_entry_for_path(self, media_entries, audio: Path):
         for e in media_entries:
+            f = e.get("file", "")
+            if not f:
+                continue
             try:
-                if Path(e.get("file", "")).resolve() == audio.resolve():
+                if Path(f).resolve() == audio.resolve():
                     return e
             except Exception:
-                pass
+                # be robust to weird paths
+                continue
         return None
