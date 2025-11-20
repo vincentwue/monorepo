@@ -1,0 +1,3 @@
+1 the path is D:\git_repos\todos\builds\sync_cuts\underwater_sync_edit.mp4 lol
+should be saved under
+D:\music_video_generation\underwater\generated\video_gen

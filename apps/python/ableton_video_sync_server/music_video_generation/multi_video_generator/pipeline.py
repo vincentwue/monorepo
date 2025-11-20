@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from ..postprocessing import config as post_cfg  # if you still want default dirs
 from ..postprocessing.audio_utils import has_ffmpeg
@@ -43,7 +43,39 @@ def _ensure_exists(path: Path, kind: str) -> None:
         raise FileNotFoundError(f"{kind} path not found: {path}")
 
 
-def _serialize_segments(res: dict) -> Dict[str, Any]:
+
+def _serialize_segments(res: Union[dict, list]) -> Dict[str, Any]:
+    """
+    Normalisiert Segmentdaten auf ein Dict mit fixer Struktur.
+
+    - Falls `res` bereits ein Dict ist: Keys direkt auslesen.
+    - Falls `res` eine Liste von Segment-Dicts ist: als "segments" interpretieren.
+    - Alles andere: wegloggen und leere Struktur zurückgeben.
+    """
+    if isinstance(res, list):
+        log.warning(
+            "serialize_segments: got list instead of dict (len=%d); "
+            "treating as raw segments.",
+            len(res),
+        )
+        return {
+            "file": None,
+            "duration_s": None,
+            "segments": res,
+            "cue_refs_used": [],
+            "notes": [],
+        }
+
+    if not isinstance(res, dict):
+        log.error("serialize_segments: unexpected type %r, value=%r", type(res), res)
+        return {
+            "file": None,
+            "duration_s": None,
+            "segments": [],
+            "cue_refs_used": [],
+            "notes": [],
+        }
+
     return {
         "file": res.get("file"),
         "duration_s": res.get("duration_s"),
@@ -51,7 +83,6 @@ def _serialize_segments(res: dict) -> Dict[str, Any]:
         "cue_refs_used": res.get("cue_refs_used", []),
         "notes": res.get("notes", []),
     }
-
 
 def run_postprocessing_from_json(
     *,
@@ -138,6 +169,17 @@ def render_sync_edit(
     audio = Path(audio_path)
     _ensure_exists(audio, "audio track")
 
+    log.info(
+        "render_sync_edit: project=%s, audio=%s, bars_per_cut=%r, cut_length_s=%r, "
+        "custom_duration_s=%r, project_root=%s",
+        project_name,
+        audio,
+        bars_per_cut,
+        cut_length_s,
+        custom_duration_s,
+        project_root,
+    )
+
     out_file = render_sync_video(
         project_name,
         audio,
@@ -148,6 +190,8 @@ def render_sync_edit(
         project_root=project_root,
     )
 
+    log.info("render_sync_edit: out_file=%r", out_file)
+
     return {
         "project_name": project_name,
         "audio_path": str(audio),
@@ -156,6 +200,7 @@ def render_sync_edit(
         "cut_length_s": cut_length_s,
         "custom_duration_s": custom_duration_s,
     }
+
 
 
 def render_auto_bar_edit(

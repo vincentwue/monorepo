@@ -14,6 +14,7 @@ from .match import find_recording_for_segment
 
 
 VIDEO_EXTS = (".mp4", ".mkv", ".mov", ".ts", ".mts", ".m4v", ".avi", ".webm")
+AUDIO_EXTS = (".wav", ".mp3", ".m4a", ".aac")
 
 
 class FootageAlignService:
@@ -237,3 +238,54 @@ class FootageAlignService:
                 # be robust to weird paths
                 continue
         return None
+
+    def resolve_audio(
+            self,
+            project_root: Path,
+            audio_override: Optional[Path] = None,
+        ) -> Path:
+            """
+            New public helper:
+
+            - If audio_override is given, just return it.
+            - Otherwise, try to locate a reasonable master audio file under
+            <project_root>/audio or <project_root>/footage/music.
+            """
+            if audio_override is not None:
+                return audio_override
+
+            root = Path(project_root)
+            candidates: list[Path] = []
+
+            audio_dir = root / "audio"
+            music_dir = root / "footage" / "music"
+
+            def collect_from_dir(d: Path) -> None:
+                if not d.is_dir():
+                    return
+                for p in sorted(d.iterdir()):
+                    if p.is_file() and p.suffix.lower() in AUDIO_EXTS:
+                        candidates.append(p)
+
+            collect_from_dir(audio_dir)
+            collect_from_dir(music_dir)
+
+            if not candidates:
+                raise FileNotFoundError(
+                    f"No audio export found under {audio_dir} or {music_dir}"
+                )
+
+            # Take the first match by name; you can tweak this later
+            return candidates[0]
+
+    # --- backwards-compatibility alias for old server code ---
+    def _resolve_audio(self, project_root, audio_override):
+        """
+        Legacy API used by server.video_gen_sync.
+
+        Keep the signature (project_root, audio_override) so existing
+        code works; delegate to resolve_audio().
+        """
+        root_path = Path(project_root)
+        override_path = Path(audio_override) if audio_override else None
+        return self.resolve_audio(root_path, override_path)

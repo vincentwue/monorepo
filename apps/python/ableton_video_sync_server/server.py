@@ -555,30 +555,45 @@ def align_state(project_path: str = Query(..., description="Absolute path to the
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+from loguru import logger
+
 @app.post("/video-gen/sync")
 def video_gen_sync(payload: VideoGenSyncRequest) -> dict:
+    logger.info("video_gen_sync: payload=%r", payload)
+
     root = Path(payload.project_path or "").expanduser().resolve()
     if not root.exists():
         raise HTTPException(status_code=400, detail=f"Project path not found: {payload.project_path}")
+
     try:
         audio_path = (
             Path(payload.audio_path).expanduser().resolve()
             if payload.audio_path
             else align_service._resolve_audio(root, None)
         )
+        logger.info("video_gen_sync: root=%s, audio_path=%s", root, audio_path)
     except ValueError as exc:
+        logger.warning("video_gen_sync: value error while resolving audio: %r", exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     try:
-        return render_sync_edit(
+        result = render_sync_edit(
             root.name,
             audio_path,
             bars_per_cut=payload.bars_per_cut,
             cut_length_s=payload.cut_length_s,
             custom_duration_s=payload.custom_duration_s,
             debug=payload.debug,
+            project_root=root,
         )
+        logger.info("video_gen_sync: render_sync_edit result type=%s value=%r", type(result).__name__, result)
+        return result
     except Exception as exc:
+        logger.exception("video_gen_sync: render_sync_edit failed with %s", type(exc).__name__)
+        # Fürs UI lieber eine generische Meldung, die interne Details nicht leakt:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 
 
 @app.post("/video-gen/auto")
