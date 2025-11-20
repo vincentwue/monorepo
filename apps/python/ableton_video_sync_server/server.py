@@ -26,6 +26,90 @@ from music_video_generation.multi_video_generator.pipeline import (
     render_auto_bar_edit,
     render_sync_edit,
 )
+# ---- Logging setup (Loguru) ----
+
+import sys
+import logging
+from pathlib import Path
+
+from loguru import logger
+import uvicorn
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+# ======================================================================
+# LOGGING: route stdlib logging + uvicorn logs through Loguru
+# ======================================================================
+
+BASE_DIR = Path(__file__).resolve().parent
+LOGS_DIR = BASE_DIR / "logs"
+LOGS_DIR.mkdir(exist_ok=True)
+LOG_FILE = LOGS_DIR / "server.log"
+
+
+class InterceptHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        # Try to map stdlib level to loguru level
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # Find the caller frame so loguru prints correct file:line
+        frame, depth = logging.currentframe(), 2
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(
+            level,
+            record.getMessage(),
+        )
+
+
+def setup_logging() -> None:
+    # Remove Loguru's default handler
+    logger.remove()
+
+    # Console sink
+    logger.add(
+        sys.stderr,
+        level="INFO",
+        format=(
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+            "<level>{message}</level>"
+        ),
+    )
+
+    # File sink
+    logger.add(
+        LOG_FILE,
+        level="INFO",
+        rotation="10 MB",        # rotate after 10 MB
+        retention="10 days",     # keep 10 days
+        compression="zip",       # compress rotated logs
+        encoding="utf-8",
+    )
+
+    # Route ALL stdlib logging through InterceptHandler
+    logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
+
+    # Explicitly hook uvicorn / fastapi loggers into the bridge
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "fastapi"):
+        log = logging.getLogger(name)
+        log.handlers = [InterceptHandler()]
+        log.propagate = False
+        log.setLevel(logging.INFO)
+
+
+setup_logging()
+logger.info(f"Server booted, logging to {LOG_FILE}")
+
+
+
 logger.add(sys.stdout, level="INFO")
 logger.info("Server booted")
 app = FastAPI(title="Ableton Video Sync Server", version="0.1.0")

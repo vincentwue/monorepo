@@ -24,6 +24,9 @@
     "*.jpg",
     "*.jpeg",
     "*.exe",
+    "*.mp4",
+    "*.pak",
+    "*.avi",
     "*.svg",
     "*.webp",
     "playwright-report",
@@ -33,6 +36,7 @@
     "*.spec.ts",
     "*.test.tsx",
     "scripts/context_provider",
+    "apps\\ableton_video_sync\\release",
     "*.pyc",
     "*.pyo",
     "*.log",
@@ -52,7 +56,7 @@
     "docs/learn.txt",
     "apps\\ory\\data\\"
   ],
-  "last_folder": "D:/git_repos/monorepo",
+  // "last_folder": "D:/git_repos/monorepo",
   "pane_sizes": {
     "main_split": [
       285,

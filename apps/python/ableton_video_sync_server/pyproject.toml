@@ -17,6 +17,10 @@ dependencies = [
   "cue-runtime>=0.1.0",
   "cue-detection>=0.1.0",
   "cue-detection-service>=0.1.0",
+  "pymongo>=4.9.0",
+  "tqdm>=4.67.1",
+  "petname>=2.6",
+  "mutagen>=1.47.0",
 ]
 
 [project.scripts]

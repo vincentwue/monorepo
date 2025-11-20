@@ -7,9 +7,14 @@ ROOT = Path(__file__).resolve().parents[7]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from cue_library import CueLibrary
-from cue_library.constants import DEFAULT_REF_DIR
-from cue_library.io import stereo_to_pcm
+try:
+    from cue_library import CueLibrary
+    from cue_library.constants import DEFAULT_REF_DIR
+    from cue_library.io import stereo_to_pcm
+except ImportError:  # workspace / monorepo layout
+    from packages.python.cue_library import CueLibrary
+    from packages.python.cue_library.constants import DEFAULT_REF_DIR
+    from packages.python.cue_library.io import stereo_to_pcm
 
 
 def ensure_refs(ref_dir: str | Path | None = None):

@@ -22,7 +22,9 @@ try:
     from music_video_generation.sound.sync_sound_generation.stop_unique_sound import mk_stop_unique, ensure_stop_ref
     from music_video_generation.sound.cue_output_service import CueOutputService
     from music_video_generation.ableton.recording_state import RecordingStateStore
-except Exception:
+except Exception as e:
+    # TEMP: log this loudly so we see why cue support is disabled
+    logger.error(f"Failed to import cue plumbing in RecordingManager: {e}", exc_info=True)
     CuePlayer = None  # type: ignore
     to_stereo = None  # type: ignore
     AudioOutputSelector = None  # type: ignore

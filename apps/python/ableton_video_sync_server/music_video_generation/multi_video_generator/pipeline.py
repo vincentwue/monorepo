@@ -2,8 +2,11 @@
 """
 High-level orchestration helpers for the music video generation pipeline.
 
-These functions wrap individual steps (cue postprocessing, export matching,
-sync-based edits, auto-bar edits) so they can be reused by the CLI and the API.
+All metadata comes from:
+- recordings.json
+- postprocess_matches.json
+
+No MongoDB / pymongo involved anymore.
 """
 
 from __future__ import annotations
@@ -12,19 +15,19 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pymongo import MongoClient
-
-from ..postprocessing import config as post_cfg
+from ..postprocessing import config as post_cfg  # if you still want default dirs
 from ..postprocessing.audio_utils import has_ffmpeg
+
 try:
     from cue_detection import gather_reference_library
-except ImportError:  # pragma: no cover - workspace fallback
+except ImportError:  # pragma: no cover
     from packages.python.cue_detection import gather_reference_library
-from ..postprocessing.main import iter_media, process_one
-from ..postprocessing.mongo_writer import insert_postprocessing_result
+
+from ..postprocessing.main import iter_media, process_one  # optional if you still want to recompute
 from .auto_bar_cuts import render_auto_bar_video
 from .sync_cuts_from_recordings import render_sync_video
-from ..export_matcher import match_ableton_export_to_recording
+from ..export_matcher import match_ableton_export_to_recording as _match_export_internal
+from ..project_files import ProjectFiles, make_store
 
 log = logging.getLogger(__name__)
 
@@ -50,54 +53,39 @@ def _serialize_segments(res: dict) -> Dict[str, Any]:
     }
 
 
-def run_postprocessing(
+def run_postprocessing_from_json(
     *,
-    input_path: Optional[str | Path] = None,
-    ref_dir: Optional[str | Path] = None,
-    mongo_uri: Optional[str] = None,
+    project_root: str | Path,
 ) -> Dict[str, Any]:
     """
-    Detects cues for all media inside `input_path` and writes the results to MongoDB.
-    Returns a summary payload for UI consumption.
+    Lightweight wrapper that just exposes the content of postprocess_matches.json
+    in the same style as the previous 'run_postprocessing' summary.
     """
-
-    media_root = _ensure_path(input_path, post_cfg.INPUT_PATH)
-    cue_root = _ensure_path(ref_dir, post_cfg.REF_DIR)
-    uri = mongo_uri or post_cfg.MONGO_URI
-
-    _ensure_exists(media_root, "input")
-    _ensure_exists(cue_root, "cue reference")
-
-    if not has_ffmpeg():
-        raise RuntimeError("ffmpeg/ffprobe not found in PATH.")
-
-    refs = gather_reference_library(cue_root)
-    media_files = list(iter_media(media_root))
-    if not media_files:
-        raise RuntimeError(f"No media files found under {media_root}")
+    store = ProjectFiles(project_root)
+    media = store.list_media()
 
     items: List[Dict[str, Any]] = []
-    client = MongoClient(uri)
-    try:
-        for path in media_files:
-            entry: Dict[str, Any] = {"file": str(path)}
-            try:
-                res = process_one(path, refs)
-                insert_postprocessing_result(client, res)
-                entry.update({"status": "ok", "result": _serialize_segments(res)})
-            except Exception as exc:  # pragma: no cover - defensive logging
-                log.exception("Postprocessing failed for %s", path)
-                entry.update({"status": "error", "error": str(exc)})
-            items.append(entry)
-    finally:
-        client.close()
+    for m in media:
+        items.append(
+            {
+                "file": m.file,
+                "status": "ok",
+                "result": {
+                    "file": m.file,
+                    "duration_s": m.duration_s,
+                    "segments": m.segments,
+                    "cue_refs_used": m.cue_refs_used,
+                    "notes": [],
+                },
+            }
+        )
 
+    pp_path = store._postprocess_path()
     return {
-        "input_path": str(media_root),
-        "ref_dir": str(cue_root),
-        "mongo_uri": uri,
+        "input_path": str(pp_path.parent),
+        "ref_dir": str(post_cfg.REF_DIR),
         "total": len(items),
-        "processed": sum(1 for item in items if item.get("status") == "ok"),
+        "processed": len(items),
         "items": items,
     }
 
@@ -105,37 +93,33 @@ def run_postprocessing(
 def match_export_to_recording(
     audio_path: str | Path,
     *,
-    mongo_uri: Optional[str] = None,
+    project_root: Optional[str | Path] = None,
 ) -> Dict[str, Any]:
     """
-    Matches a rendered Ableton export to its recording document via cue detection.
+    Matches a rendered Ableton export to its recording using recordings.json.
     """
-
     path = Path(audio_path)
     _ensure_exists(path, "audio export")
 
-    uri = mongo_uri or post_cfg.MONGO_URI
-    client = MongoClient(uri)
-    try:
-        rec_doc, cue_info = match_ableton_export_to_recording(path, client)
-    finally:
-        client.close()
+    store = make_store(project_root, hint_path=path)
+    match, cue_info = _match_export_internal(path, store)
 
     recording_payload: Dict[str, Any] | None = None
-    if rec_doc:
-        fields = rec_doc.get("fields", {}).get("ableton_recording", {})
+    project_name: Optional[str] = None
+    if match:
+        rec = match["recording"]
+        project_name = match["project_name"]
         recording_payload = {
-            "id": str(rec_doc.get("_id")),
-            "title": rec_doc.get("title"),
-            "project_name": fields.get("project_name"),
-            "start_sound_path": fields.get("start_sound_path"),
-            "end_sound_path": fields.get("end_sound_path"),
+            "project_name": project_name,
+            "start_sound_path": rec.start_sound_path,
+            "end_sound_path": rec.end_sound_path,
         }
 
     return {
         "audio_path": str(path),
-        "mongo_uri": uri,
+        "project_root": str(store.project_root),
         "matched": recording_payload is not None,
+        "project_name": project_name,
         "recording": recording_payload,
         "cue": cue_info,
     }
@@ -149,11 +133,8 @@ def render_sync_edit(
     cut_length_s: Optional[float] = None,
     custom_duration_s: Optional[float] = None,
     debug: Optional[bool] = None,
+    project_root: Optional[str | Path] = None,
 ) -> Dict[str, Any]:
-    """
-    Builds a tempo-aligned edit using the cue segments already stored in MongoDB.
-    """
-
     audio = Path(audio_path)
     _ensure_exists(audio, "audio track")
 
@@ -164,6 +145,7 @@ def render_sync_edit(
         cut_length_s_override=cut_length_s,
         custom_duration_s=custom_duration_s,
         debug=debug,
+        project_root=project_root,
     )
 
     return {
@@ -183,11 +165,8 @@ def render_auto_bar_edit(
     *,
     bars_per_cut: Optional[int] = None,
     custom_duration_s: Optional[float] = None,
+    project_root: Optional[str | Path] = None,
 ) -> Dict[str, Any]:
-    """
-    Generates an automatic bar-length cut using the available camera clips.
-    """
-
     videos_root = Path(video_dir)
     _ensure_exists(videos_root, "video directory")
     audio = Path(audio_path)
@@ -199,6 +178,7 @@ def render_auto_bar_edit(
         audio,
         bars_per_cut=bars_per_cut,
         custom_duration_s=custom_duration_s,
+        project_root=project_root,
     )
 
     return {
@@ -216,20 +196,18 @@ def run_full_pipeline(
     video_dir: str | Path,
     audio_path: str | Path,
     *,
-    input_path: Optional[str | Path] = None,
-    ref_dir: Optional[str | Path] = None,
+    project_root: Optional[str | Path] = None,
     match_audio_path: Optional[str | Path] = None,
     bars_per_cut: Optional[int] = None,
     cut_length_s: Optional[float] = None,
     custom_duration_s: Optional[float] = None,
-    mongo_uri: Optional[str] = None,
     skip_postprocess: bool = False,
     skip_match: bool = False,
     skip_sync: bool = False,
     skip_auto: bool = False,
 ) -> Dict[str, Any]:
     """
-    Convenience wrapper that executes the typical production pipeline in order.
+    Convenience wrapper executing the typical production pipeline, purely from JSON.
     """
 
     result: Dict[str, Any] = {
@@ -238,18 +216,14 @@ def run_full_pipeline(
         "audio_path": str(audio_path),
     }
 
-    if not skip_postprocess:
-        result["postprocess"] = run_postprocessing(
-            input_path=input_path,
-            ref_dir=ref_dir,
-            mongo_uri=mongo_uri,
-        )
+    if not skip_postprocess and project_root is not None:
+        result["postprocess"] = run_postprocessing_from_json(project_root=project_root)
 
     if not skip_match:
         export_audio = match_audio_path or audio_path
         result["export_match"] = match_export_to_recording(
             export_audio,
-            mongo_uri=mongo_uri,
+            project_root=project_root,
         )
 
     if not skip_sync:
@@ -259,6 +233,8 @@ def run_full_pipeline(
             bars_per_cut=bars_per_cut,
             cut_length_s=cut_length_s,
             custom_duration_s=custom_duration_s,
+            debug=None,
+            project_root=project_root,
         )
 
     if not skip_auto:
@@ -268,6 +244,7 @@ def run_full_pipeline(
             audio_path,
             bars_per_cut=bars_per_cut,
             custom_duration_s=custom_duration_s,
+            project_root=project_root,
         )
 
     return result

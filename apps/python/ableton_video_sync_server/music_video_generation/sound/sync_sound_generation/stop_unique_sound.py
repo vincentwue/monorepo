@@ -7,7 +7,10 @@ ROOT = Path(__file__).resolve().parents[7]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from cue_library import CueLibrary
+try:
+    from cue_library import CueLibrary
+except ImportError:  # workspace / monorepo layout
+    from packages.python.cue_library import CueLibrary
 
 _LIB = CueLibrary(peak_db=0.0)
 

@@ -44,12 +44,12 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 }
 
 const TABS = [
-  { id: 'projects', label: 'Projects' },
   { id: 'devices', label: 'Devices' },
-  { id: 'ingest', label: 'Ingest' },
   { id: 'cueSpeaker', label: 'Cue speaker' },
+  { id: 'projects', label: 'Projects' },
   { id: 'abletonConnection', label: 'Ableton connection' },
   { id: 'record', label: 'Record' },
+  { id: 'ingest', label: 'Ingest' },
   { id: 'primaryCues', label: 'Primary cue detection' },
   { id: 'postprocess', label: 'Postprocess footage' },
   { id: 'align', label: 'Align footage' },
@@ -139,6 +139,12 @@ function App() {
     }
   }
 
+  const activeProject = useMemo(
+    () => projects.find((p) => p.path === activeProjectPath) ?? null,
+    [projects, activeProjectPath],
+  )
+
+
   const handleCreateProject = async (event: FormEvent) => {
     event.preventDefault()
     setBannerMessage(null)
@@ -201,11 +207,25 @@ function App() {
     <div className="app-shell">
       <header className="top-bar">
         <div className="top-bar__details">
-          <p className="product-name">Ableton Video Sync</p>
+          <div className="top-bar__title-row">
+            <p className="product-name">Ableton Video Sync</p>
+
+            {activeProject ? (
+              <div className="active-project">
+                <span className="active-project__separator">·</span>
+                <span className="active-project__name">{activeProject.name}</span>
+                <span className="active-project__path">{activeProject.path}</span>
+              </div>
+            ) : (
+              <span className="active-project__none">No active project</span>
+            )}
+          </div>
+
           <p className="folder-status" title={mainFolder ?? undefined}>
             {folderText}
           </p>
         </div>
+
         <button
           className="settings-button"
           type="button"

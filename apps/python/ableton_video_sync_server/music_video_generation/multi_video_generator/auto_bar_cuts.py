@@ -1,63 +1,54 @@
 #!/usr/bin/env python3
 """
-Auto-Bar-Cut Video Generator
-----------------------------
-Simple MVP that renders a synchronized multi-camera video
-with automatic cuts every N bars based on Ableton BPM.
+Auto-Bar-Cut Video Generator (file-based)
+-----------------------------------------
+Renders a synchronized multi-camera video with automatic cuts every N bars.
 
-Requires:
-- A matching Ableton recording (for BPM + metadata)
-- One or more synced video clips (e.g. from media_ingest)
-- A rendered song (audio file, e.g. MP3/WAV)
+Reads:
+- tempo / TS and recording info from recordings.json
+- only uses the audio file duration for final length (with small override option)
 """
 
-import os
+from __future__ import annotations
+
 import math
 import random
 from pathlib import Path
-from typing import List
-from pymongo import MongoClient
-from mutagen import File as AudioFile
+from typing import List, Optional
+
+from mutagen import File as AudioFile  # type: ignore[import]
 
 from .ffmpeg_render import FFmpegRenderer
 from .cut import CutClip
-from .model import Video, VideoProject
+from ..project_files import ProjectFiles, make_store
 
 
-# === CONFIG ===
-MONGO_URI = "mongodb://localhost:27025"
-DB_NAME = "vincent_core"
-COLL_REC = "ableton.recordings"
-BAR_GROUP = 4                     # bars per cut
-CUSTOM_DURATION_S = 15           # set to 0.0 to use MP3 duration
+BAR_GROUP = 4
+CUSTOM_DURATION_S = 15.0          # set to 0.0 to use full track
 OUTPUT_DIR = Path("D:/git_repos/todos/builds/auto_bar_cuts")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ==========================================================
-# === Helpers ===
-# ==========================================================
-
 def get_audio_duration(audio_path: Path) -> float:
     """Reads actual duration of an audio file (MP3/WAV) robustly."""
     try:
-        from mutagen import File
-        audio = File(audio_path)
+        audio = AudioFile(audio_path)
         if audio and hasattr(audio, "info") and getattr(audio.info, "length", 0) > 0:
             return float(audio.info.length)
     except Exception:
         pass
 
-    # --- final fallback using ffprobe ---
+    # ffprobe fallback
     try:
-        import subprocess, json
+        import subprocess
+        import json as _json
         cmd = [
             "ffprobe", "-v", "error",
             "-show_entries", "format=duration",
-            "-of", "json", str(audio_path)
+            "-of", "json", str(audio_path),
         ]
-        out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
-        info = json.loads(out)
+        out = subprocess.check_output(cmd)
+        info = _json.loads(out)
         return float(info["format"]["duration"])
     except Exception as e:
         print(f"[warn] Could not determine duration for {audio_path}: {e}")
@@ -65,46 +56,36 @@ def get_audio_duration(audio_path: Path) -> float:
 
 
 def get_recording_data(
-    client: MongoClient,
+    store: ProjectFiles,
     project_name: str,
     audio_path: Path,
-    custom_duration_s: float | None = None,
+    custom_duration_s: Optional[float] = None,
 ):
-    """Fetch Ableton recording info by project name."""
-    db = client[DB_NAME]
-    coll = db[COLL_REC]
-    rec = coll.find_one({
-        "fields.ableton_recording.project_name": project_name
-    })
-    if not rec:
-        raise RuntimeError(f"No recording found for project '{project_name}'")
+    rec = store.get_recording_by_project(project_name)
 
-    f = rec["fields"]["ableton_recording"]
-    bpm = f.get("bpm_at_start", 120)
-    ts_num = f.get("ts_num", 4)
-    ts_den = f.get("ts_den", 4)
+    bpm = rec.bpm_at_start
+    ts_num = rec.ts_num
+    ts_den = rec.ts_den
 
-    db_duration = rec["metadata"].get("duration_seconds", 0.0)
+    json_dur = rec.duration_seconds or 0.0
     file_duration = get_audio_duration(audio_path)
 
-    # choose duration: custom > file > db
     custom = CUSTOM_DURATION_S if custom_duration_s is None else custom_duration_s
     if custom and custom > 0:
         duration = custom
         source = "custom"
     else:
-        duration = max(db_duration, file_duration, 1.0)
-        source = "file" if file_duration >= db_duration else "db"
+        duration = max(json_dur, file_duration, 1.0)
+        source = "file" if file_duration >= json_dur else "json"
 
     print(
         f"[info] Recording '{project_name}': {bpm} BPM, {ts_num}/{ts_den}, "
-        f"{duration:.2f}s (source={source}, file={file_duration:.2f}s, db={db_duration:.2f}s)"
+        f"{duration:.2f}s (source={source}, file={file_duration:.2f}s, json={json_dur:.2f}s)"
     )
     return bpm, ts_num, ts_den, duration
 
 
 def compute_cut_points(bpm: float, ts_num: int, duration: float, bars_per_cut: int = BAR_GROUP):
-    """Compute cut points in seconds based on bars."""
     bar_sec = 60.0 / bpm * ts_num
     cut_interval = bar_sec * bars_per_cut
     total_cuts = max(1, math.ceil(duration / cut_interval))
@@ -114,7 +95,6 @@ def compute_cut_points(bpm: float, ts_num: int, duration: float, bars_per_cut: i
 
 
 def find_video_clips(video_dir: Path, exts=(".mp4", ".mov", ".mkv")) -> List[str]:
-    """Find all available video clips."""
     clips = [str(p) for p in video_dir.rglob("*") if p.suffix.lower() in exts]
     if not clips:
         raise RuntimeError(f"No video clips found in {video_dir}")
@@ -122,12 +102,12 @@ def find_video_clips(video_dir: Path, exts=(".mp4", ".mov", ".mkv")) -> List[str
     return clips
 
 
-# ==========================================================
-# === Generate bar-based cut sequence ===
-# ==========================================================
-
-def generate_bar_cuts_sequence(videos: List[str], cut_points: List[float], duration: float, segment_length: float) -> List[CutClip]:
-    """Builds a sequence of CutClips, alternating or random video sources."""
+def generate_bar_cuts_sequence(
+    videos: List[str],
+    cut_points: List[float],
+    duration: float,
+    segment_length: float,
+) -> List[CutClip]:
     from dataclasses import dataclass
 
     @dataclass
@@ -138,7 +118,7 @@ def generate_bar_cuts_sequence(videos: List[str], cut_points: List[float], durat
     if not videos:
         raise RuntimeError("No video sources provided to generate sequence.")
 
-    for i, start in enumerate(cut_points):
+    for start in cut_points:
         start_t = start
         end_t = min(duration, start_t + segment_length)
         seg_duration = end_t - start_t
@@ -146,45 +126,46 @@ def generate_bar_cuts_sequence(videos: List[str], cut_points: List[float], durat
             continue
 
         vid = random.choice(videos)
-        clip = CutClip(
-            video=DummyVideo(vid),
-            inpoint=0.0,
-            outpoint=seg_duration,
-            duration=seg_duration,
-            time_global=start_t,
+        seq.append(
+            CutClip(
+                video=DummyVideo(vid),
+                inpoint=0.0,
+                outpoint=seg_duration,
+                duration=seg_duration,
+                time_global=start_t,
+            )
         )
-        seq.append(clip)
 
     if not seq:
         vid = random.choice(videos)
-        seq.append(CutClip(
-            video=DummyVideo(vid),
-            inpoint=0.0,
-            outpoint=duration,
-            duration=duration,
-            time_global=0.0,
-        ))
+        seq.append(
+            CutClip(
+                video=DummyVideo(vid),
+                inpoint=0.0,
+                outpoint=duration,
+                duration=duration,
+                time_global=0.0,
+            )
+        )
         print("[warn] No valid cuts computed, fallback to single full-length clip.")
 
     print(f"[debug] Generated {len(seq)} segments (~{duration:.2f}s total)")
     return seq
 
 
-# ==========================================================
-# === Main logic ===
-# ==========================================================
-
 def render_auto_bar_video(
     project_name: str,
     video_dir: Path,
     audio_path: Path,
     *,
-    bars_per_cut: int | None = None,
-    custom_duration_s: float | None = None,
+    bars_per_cut: Optional[int] = None,
+    custom_duration_s: Optional[float] = None,
+    project_root: Optional[str | Path] = None,
 ) -> str:
-    client = MongoClient(MONGO_URI)
+    store = make_store(project_root, hint_path=audio_path)
+
     bpm, ts_num, ts_den, duration = get_recording_data(
-        client,
+        store,
         project_name,
         audio_path,
         custom_duration_s=custom_duration_s,
@@ -204,19 +185,20 @@ def render_auto_bar_video(
     return final
 
 
-# ==========================================================
-# === CLI Entry ===
-# ==========================================================
-
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 4:
-        print("Usage: python -m music_video_generation.multi_video_generator.auto_bar_cuts <project_name> <video_dir> <audio_file>")
+        print(
+            "Usage: python -m music_video_generation.multi_video_generator.auto_bar_cuts "
+            "<project_name> <video_dir> <audio_file> [project_root]"
+        )
         sys.exit(1)
 
     project = sys.argv[1]
     video_dir = Path(sys.argv[2])
     audio_path = Path(sys.argv[3])
+    project_root_arg = Path(sys.argv[4]) if len(sys.argv) >= 5 else None
 
-    result_path = render_auto_bar_video(project, video_dir, audio_path)
+    result_path = render_auto_bar_video(project, video_dir, audio_path, project_root=project_root_arg)
     print(f"[ok] Auto bar edit written to {result_path}")

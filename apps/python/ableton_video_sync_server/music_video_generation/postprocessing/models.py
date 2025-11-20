@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
-from server.src.models.idea import Idea
 
 
 class AbletonSegment(BaseModel):
@@ -20,7 +19,7 @@ class AbletonPostprocessingFields(BaseModel):
     processed_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class AbletonPostprocessingIdea(Idea):
+class AbletonPostprocessingIdea(BaseModel):
     tags: List[str] = ["ableton", "postprocessing"]
     traits: List[str] = ["ableton_postprocessing"]
     metadata: Dict[str, Any] = {}
