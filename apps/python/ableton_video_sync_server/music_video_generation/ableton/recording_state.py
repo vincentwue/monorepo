@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from uuid import uuid4
 
+from loguru import logger
+
 
 class RecordingStateStore:
     """Lightweight JSON-backed state for cue/record controls per project."""
@@ -158,20 +160,91 @@ class RecordingStateStore:
                     return dict(entry)
         raise ValueError(f"Recording not found: {recording_id}")
 
+
     def delete_recording(self, project_path: str, recording_id: str) -> Dict[str, Any]:
         if not recording_id:
             raise ValueError("Recording id is required.")
         project = self._resolve_root(project_path)
+
         with self._lock:
             raw, _warning = self._read_state(project)
             state, _ = self._apply_defaults(raw)
             recordings: List[Dict[str, Any]] = state.get("recordings", [])
-            before = len(recordings)
-            state["recordings"] = [rec for rec in recordings if rec.get("id") != recording_id]
-            if before == len(state["recordings"]):
+
+            # 1) Find the recording we’re about to delete
+            target_rec: Dict[str, Any] | None = None
+            for rec in recordings:
+                if rec.get("id") == recording_id:
+                    target_rec = rec
+                    break
+
+            if target_rec is None:
                 raise ValueError(f"Recording not found: {recording_id}")
+
+            # 2) Collect all cue-related paths from this recording
+            cue_paths_to_consider = {
+                p
+                for p in [
+                    target_rec.get("start_sound_path"),
+                    target_rec.get("end_sound_path"),
+                    target_rec.get("start_combined_path"),
+                    target_rec.get("end_combined_path"),
+                ]
+                if isinstance(p, str) and p.strip()
+            }
+
+            # 3) Remove the recording from the list
+            state["recordings"] = [rec for rec in recordings if rec.get("id") != recording_id]
             state["last_updated"] = datetime.now(UTC).isoformat()
             self._write_state(project, state)
+
+        # 4) After releasing the lock, delete cue files that are no longer referenced
+        try:
+            remaining_recordings: List[Dict[str, Any]] = state.get("recordings", [])
+            remaining_paths: set[str] = set()
+
+            for rec in remaining_recordings:
+                for key in (
+                    "start_sound_path",
+                    "end_sound_path",
+                    "start_combined_path",
+                    "end_combined_path",
+                ):
+                    p = rec.get(key)
+                    if isinstance(p, str) and p.strip():
+                        remaining_paths.add(p)
+
+            # Only delete files that are *not* referenced anymore
+            for cue_path in cue_paths_to_consider:
+                if cue_path in remaining_paths:
+                    continue  # still used by another recording, keep it
+
+                try:
+                    p = Path(cue_path)
+                    if p.exists():
+                        p.unlink()
+                        logger.info(
+                            "Deleted cue file %s for recording %s (project=%s)",
+                            p,
+                            recording_id,
+                            project_path,
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to delete cue file %s for recording %s: %s",
+                        cue_path,
+                        recording_id,
+                        exc,
+                    )
+        except Exception as exc:
+            # Never break API just because cleanup failed
+            logger.warning(
+                "Post-delete cue cleanup failed for project %s, recording %s: %s",
+                project_path,
+                recording_id,
+                exc,
+            )
+
         return self._prepare_response(project, state, None)
 
 

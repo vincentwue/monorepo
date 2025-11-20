@@ -115,7 +115,7 @@ export function RecordPanel({ activeProjectPath }: RecordPanelProps) {
     }
     const interval = setInterval(() => {
       loadState(activeProjectPath, { silent: true })
-    }, 5000)
+    }, 50000)
     return () => clearInterval(interval)
   }, [activeProjectPath, loadState])
 

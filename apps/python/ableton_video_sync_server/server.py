@@ -42,21 +42,26 @@ from pydantic import BaseModel, Field
 # LOGGING: route stdlib logging + uvicorn logs through Loguru
 # ======================================================================
 
+# ======================================================================
+# LOGGING: Loguru + bridge for stdlib + uvicorn
+# ======================================================================
+
 BASE_DIR = Path(__file__).resolve().parent
 LOGS_DIR = BASE_DIR / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
+
 LOG_FILE = LOGS_DIR / "server.log"
 
 
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
-        # Try to map stdlib level to loguru level
+        # Map logging level to Loguru level
         try:
             level = logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
 
-        # Find the caller frame so loguru prints correct file:line
+        # Get correct caller depth so file:line is accurate
         frame, depth = logging.currentframe(), 2
         while frame and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
@@ -72,7 +77,7 @@ def setup_logging() -> None:
     # Remove Loguru's default handler
     logger.remove()
 
-    # Console sink
+    # Console
     logger.add(
         sys.stderr,
         level="INFO",
@@ -84,20 +89,20 @@ def setup_logging() -> None:
         ),
     )
 
-    # File sink
+    # File (rotation + retention)
     logger.add(
         LOG_FILE,
         level="INFO",
-        rotation="10 MB",        # rotate after 10 MB
-        retention="10 days",     # keep 10 days
-        compression="zip",       # compress rotated logs
+        rotation="10 MB",
+        retention="10 days",
+        compression="zip",
         encoding="utf-8",
     )
 
-    # Route ALL stdlib logging through InterceptHandler
+    # Route ALL stdlib logging into Loguru
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
-    # Explicitly hook uvicorn / fastapi loggers into the bridge
+    # Specifically hook uvicorn / fastapi loggers into the bridge
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "fastapi"):
         log = logging.getLogger(name)
         log.handlers = [InterceptHandler()]
@@ -105,9 +110,9 @@ def setup_logging() -> None:
         log.setLevel(logging.INFO)
 
 
+# Call this at import time so it works with `uvicorn server:app`
 setup_logging()
 logger.info(f"Server booted, logging to {LOG_FILE}")
-
 
 
 logger.add(sys.stdout, level="INFO")
