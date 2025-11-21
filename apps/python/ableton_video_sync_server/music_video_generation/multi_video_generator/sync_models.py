@@ -54,3 +54,5 @@ class GridSlot:
 @dataclass
 class SimpleVideoRef:
     filename: str
+    camera_id: Optional[str] = None
+    kind: str = "camera"  # "camera" or "black"

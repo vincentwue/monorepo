@@ -80,6 +80,8 @@ def render_sync_video(
         custom_duration_s=custom_duration_s,
     )
 
+    audio_offset_s = float(debug_plan.get("audio_loop_start_s", 0.0))
+
     # Output path: inside project/generated/video_generation
     out_dir = root / "generated" / "video_generation"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -105,6 +107,10 @@ def render_sync_video(
         out_file,
         audio_path,
     )
-    renderer.render_sequence(seq, str(out_file), str(audio_path))
-
+    renderer.render_sequence(
+        seq,
+        output_path=str(out_file),
+        audio_source=str(audio_info.file),
+        audio_offset_s=audio_offset_s,
+    )
     return out_file

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -215,17 +217,14 @@ class FFmpegRenderer:
         Simple “one clip” extract. Currently unused in the main sync pipeline,
         but kept for completeness.
         """
-        input_path = clip.video.filename
+        # Explicit black filler support
+        is_black = getattr(clip.video, "kind", None) == "black"
 
-        # Decide if this is a likely audio-only source
-        suffix = str(input_path).lower()
-        is_audio_like = suffix.endswith(
-            (".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg", ".wma")
-        )
-
-        if is_audio_like:
-            log.warning(
-                "extract_segment: source %s looks like audio-only; using black video filler.", input_path
+        if is_black:
+            log.info(
+                "extract_segment: BLACK filler segment (duration=%.3fs) to %s",
+                clip.duration,
+                out_path,
             )
             input_args = [
                 "-f",
@@ -234,7 +233,27 @@ class FFmpegRenderer:
                 f"color=c=black:size={self.width}x{self.height}:rate={self.fps}",
             ]
         else:
-            input_args = ["-i", input_path]
+            input_path = clip.video.filename
+
+            # Decide if this is a likely audio-only source
+            suffix = str(input_path).lower()
+            is_audio_like = suffix.endswith(
+                (".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg", ".wma")
+            )
+
+            if is_audio_like:
+                log.warning(
+                    "extract_segment: source %s looks like audio-only; using black video filler.",
+                    input_path,
+                )
+                input_args = [
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    f"color=c=black:size={self.width}x{self.height}:rate={self.fps}",
+                ]
+            else:
+                input_args = ["-i", input_path]
 
         cmd = [
             *input_args,
@@ -281,7 +300,13 @@ class FFmpegRenderer:
             leave=False,
         )
 
-    def render_sequence(self, seq: List["CutClip"], output_path: str, audio_source: Optional[str] = None) -> str:
+    def render_sequence(
+        self,
+        seq: List["CutClip"],
+        output_path: str,
+        audio_source: Optional[str] = None,
+        audio_offset_s: float = 0.0,
+    ) -> str:        
         """
         Main entry point: render a sequence of CutClip objects to a final video.
 
@@ -289,6 +314,7 @@ class FFmpegRenderer:
           1) Extract each clip to a temp segment (video-only).
              - Real video sources are re-encoded.
              - Audio-like “sources” (.mp3/.wav/..) become black filler.
+             - Clips with video.kind == 'black' use a synthetic black source.
           2) Concat all segments to a temp video.
           3) Mux final audio from audio_source (if provided).
           4) Write an *_plan.json next to output_path with rich metadata.
@@ -340,17 +366,15 @@ class FFmpegRenderer:
         # --- Parallel segment extraction (limited workers, no audio) ---
         def worker(i: int, clip: CutClip) -> str:
             seg_path = os.path.join(workdir, f"seg_{i:04d}.{self.container_ext}")
-            src = clip.video.filename
+            src = getattr(clip.video, "filename", "__BLACK__")
             suffix = str(src).lower()
-            is_audio_like = suffix.endswith(
-                (".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg", ".wma")
-            )
 
-            if is_audio_like:
-                log.warning(
-                    "render_sequence: clip %d source %s looks audio-only; using black video filler.",
+            is_black = getattr(clip.video, "kind", None) == "black"
+            if is_black:
+                log.info(
+                    "render_sequence: clip %d is BLACK filler (duration=%.3fs).",
                     i,
-                    src,
+                    clip.duration,
                 )
                 input_args = [
                     "-f",
@@ -358,8 +382,26 @@ class FFmpegRenderer:
                     "-i",
                     f"color=c=black:size={self.width}x{self.height}:rate={self.fps}",
                 ]
+                is_audio_like = False
             else:
-                input_args = ["-i", src]
+                is_audio_like = suffix.endswith(
+                    (".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg", ".wma")
+                )
+
+                if is_audio_like:
+                    log.warning(
+                        "render_sequence: clip %d source %s looks audio-only; using black video filler.",
+                        i,
+                        src,
+                    )
+                    input_args = [
+                        "-f",
+                        "lavfi",
+                        "-i",
+                        f"color=c=black:size={self.width}x{self.height}:rate={self.fps}",
+                    ]
+                else:
+                    input_args = ["-i", src]
 
             cmd = [
                 *input_args,
@@ -412,7 +454,7 @@ class FFmpegRenderer:
                 for future in as_completed(futures):
                     segments.append(future.result())
 
-        # Keep segments in order by filename
+        # Keep segments in order by filename (seg_0001, seg_0002, ...)
         segments.sort()
 
         # Add segment paths to plan
@@ -427,6 +469,8 @@ class FFmpegRenderer:
             cmd = [
                 "-i",
                 temp_video,
+                "-ss", f"{audio_offset_s:.6f}",
+
                 "-i",
                 audio_source,
                 "-map",

@@ -11,7 +11,8 @@ from .sync_models import (
     SimpleVideoRef,
     SyncRecording,
 )
-from .sync_metadata import _build_bar_grid
+from .sync_metadata import _build_bar_grid, _bar_duration_s
+
 
 log = logging.getLogger(__name__)
 
@@ -40,20 +41,39 @@ def _build_sync_sequence(
             they overlap.
     """
     if not camera_takes:
-        raise ValueError("No camera takes found – cannot build sync edit without video")
+        raise ValueError("No camera takes found - cannot build sync edit without video")
 
     # What portion of the audio do we render?
     audio_duration = custom_duration_s if custom_duration_s is not None else audio.duration_s
 
+    # Duration of one bar (seconds)
+    bar_len = _bar_duration_s(rec)
+
+    # Where does the *loop start bar* land in the audio export?
+    # Assumption: audio.start_anchor.time_s corresponds to rec.start_bar.
+    # Then bar b occurs at:
+    #   t_audio(b) = audio_start_t + (b - rec.start_bar) * bar_len
+    audio_start_t = audio.start_anchor.time_s
+    audio_loop_start_t = audio_start_t + (rec.loop_start_bar - rec.start_bar) * bar_len
+
+    if audio_loop_start_t >= audio_duration:
+        raise ValueError(
+            f"Grid origin {audio_loop_start_t:.3f}s is beyond audio duration "
+            f"{audio_duration:.3f}s - check start_bar/loop_start_bar/anchors"
+        )
+
+    # We only build a grid from loop_start to the end of the audio
+    grid_duration = audio_duration - audio_loop_start_t
+
+
     # Build global bar grid over the audio
+    # Build bar grid *relative to loop_start* (t=0 corresponds to loop_start)
     slots: List[GridSlot] = _build_bar_grid(
         rec,
-        audio_duration_s=audio_duration,
+        audio_duration_s=grid_duration,
         bars_per_cut=bars_per_cut,
         cut_length_override_s=cut_length_override_s,
     )
-
-    audio_start_t = audio.start_anchor.time_s
 
     # -----------------------------------------------------------------------
     # Precompute per-take metadata: duration, solo weight, audio coverage
@@ -113,12 +133,13 @@ def _build_sync_sequence(
 
     seq: List[CutClip] = []
     plan_segments: List[Dict[str, Any]] = []
+    last_take_index: Optional[int] = None
 
     # -----------------------------------------------------------------------
     # Slot-by-slot assignment
     # -----------------------------------------------------------------------
     for slot in slots:
-        audio_t = slot.time_global
+        audio_t = audio_loop_start_t + slot.time_global
         slot_end = audio_t + slot.duration
 
         candidates: List[Tuple[float, float, str, Dict[str, Any]]] = []
@@ -147,7 +168,7 @@ def _build_sync_sequence(
                 boundary_penalty = 0.0
             else:
                 # Try to clamp to the take window, but do NOT treat this as
-                # unlimited reuse – if we cannot fit the full slot, skip.
+                # unlimited reuse - if we cannot fit the full slot, skip.
                 clamped_start = max(window_start, min(ideal_start, window_end - slot.duration))
                 clamped_end = clamped_start + slot.duration
                 if clamped_start < window_start or clamped_end > window_end:
@@ -167,17 +188,67 @@ def _build_sync_sequence(
 
         if not candidates:
             log.warning(
-                "No camera covers slot %d at audio_t=%.3fs (dur=%.3fs) – dropping this slot.",
+                "No camera covers slot %d at audio_t=%.3fs (dur=%.3fs) - using BLACK filler.",
                 slot.index,
                 audio_t,
                 slot.duration,
             )
+
+            # Black filler clip for this bar
+            black_ref = SimpleVideoRef(
+                filename="__BLACK__",  # dummy path; renderer will special-case
+                kind="black",
+            )
+
+            seq.append(
+                CutClip(
+                    time_global=slot.time_global,
+                    duration=slot.duration,
+                    video=black_ref,
+                    inpoint=0.0,
+                    outpoint=slot.duration,
+                )
+            )
+
+            plan_segments.append(
+                {
+                    "slot_index": slot.index,
+                    "time_global": audio_t,
+                    "duration": slot.duration,
+                    "bar_index": rec.loop_start_bar + slot.bar_index,
+                    "camera_file": None,
+                    "camera_take_index": None,
+                    "camera_inpoint": None,
+                    "camera_mapping_kind": "black",
+                    "score": None,
+                    "audio_time": audio_t,
+                    "audio_start_anchor": {
+                        "time_s": audio.start_anchor.time_s,
+                        "ref_id": audio.start_anchor.ref_id,
+                    },
+                    "camera_start_anchor": None,
+                    "camera_window_start_s": None,
+                    "camera_window_end_s": None,
+                    "audio_coverage_start_s": None,
+                    "audio_coverage_end_s": None,
+                }
+            )
+            last_take_index = None
             continue
 
-        # Pick best candidate for this slot.
+
+        # Pick best candidate for this slot (optionally alternate takes when bars_per_cut == 1).
         candidates.sort(key=lambda x: x[0], reverse=True)
-        best_score, inpoint, mapping_kind, info = candidates[0]
+        chosen_score, inpoint, mapping_kind, info = candidates[0]
+        if bars_per_cut == 1 and len(candidates) > 1 and last_take_index is not None:
+            for cand in candidates:
+                cand_take_idx = cand[3]["take"].index
+                if cand_take_idx != last_take_index:
+                    chosen_score, inpoint, mapping_kind, info = cand
+                    break
+        best_score = chosen_score
         t: CameraTake = info["take"]
+        last_take_index = t.index
 
         seq.append(
             CutClip(
@@ -192,9 +263,9 @@ def _build_sync_sequence(
         plan_segments.append(
             {
                 "slot_index": slot.index,
-                "time_global": slot.time_global,
+                "time_global": audio_t,  # real audio time
                 "duration": slot.duration,
-                "bar_index": slot.bar_index,
+                "bar_index": rec.loop_start_bar + slot.bar_index,
                 "camera_file": str(t.file),
                 "camera_take_index": t.index,
                 "camera_inpoint": inpoint,
@@ -227,6 +298,10 @@ def _build_sync_sequence(
             "time_s": audio.start_anchor.time_s,
             "ref_id": audio.start_anchor.ref_id,
         },
+        "audio_loop_start_s": audio_loop_start_t,
+        "loop_start_bar": rec.loop_start_bar,
+        "start_bar": rec.start_bar,
+
         "audio_end_hit": (
             {
                 "time_s": audio.end_hit.time_s,
