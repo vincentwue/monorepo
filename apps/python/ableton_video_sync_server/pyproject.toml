@@ -21,6 +21,7 @@ dependencies = [
   "tqdm>=4.67.1",
   "petname>=2.6",
   "mutagen>=1.47.0",
+  "matplotlib>=3.10.7",
 ]
 
 [project.scripts]

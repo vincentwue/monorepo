@@ -35,10 +35,10 @@ except Exception as e:
     RecordingStateStore = None  # type: ignore
 
 
-START_SEED_LENGTH = 0.75
+START_SEED_LENGTH = 1
 START_SEED_GAIN = 2.2
 START_PREFIX_BOOST = 2.5
-STOP_SEED_LENGTH = 0.95
+STOP_SEED_LENGTH = 1
 STOP_SEED_GAIN = 2.0
 STOP_PREFIX_BOOST = 2.5
 

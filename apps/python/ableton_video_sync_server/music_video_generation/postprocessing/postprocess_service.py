@@ -178,6 +178,7 @@ class PostprocessService:
             if targets:
                 job["targets"] = [str(p) for p in targets]
             self._jobs[key] = job
+            logger.info("postprocess: starting job %s", key)
             thread = threading.Thread(target=self._worker, args=(root, key, params, targets), daemon=True)
             thread.start()
         return job
@@ -210,6 +211,7 @@ class PostprocessService:
     # ------------------------------------------------------------------ worker
     def _worker(self, root: Path, job_key: str, params: Dict[str, float], targets: Optional[set[Path]]) -> None:
         job = self._jobs[job_key]
+        logger.info("postprocess12: worker started for %s", root)
         try:
             media = self._process_project(root, job, params, targets)
             payload = self._build_payload(root, media, params)
@@ -228,6 +230,7 @@ class PostprocessService:
 
         footage_dir = self._footage_dir(root)
         media_files = self._iter_media(footage_dir)
+        logger.info("postprocess34: found %d media files", len(media_files))
         if not media_files:
             raise RuntimeError(f"No media files found in {footage_dir}")
 
@@ -249,7 +252,8 @@ class PostprocessService:
             try:
                 media_results.append(self._process_file(file_path, refs, root, params, track_map))
             except Exception as exc:
-                logger.warning("postprocess: failed to process %s: %s", file_path, exc)
+                import traceback
+                logger.warning(f"postprocess: failed to process {file_path}: {exc}\n{traceback.format_exc()}")
                 media_results.append(
                     {
                         "file": str(file_path),
@@ -283,6 +287,7 @@ class PostprocessService:
             extract_audio_48k(str(file_path), tmp)
             rec, _fs = read_wav_mono(tmp)
         duration = get_media_duration(str(file_path)) or len(rec) / FS
+        logger.info("postprocess45: computing matches for %s", file_path)
         matches = compute_matches(rec, refs, params["threshold"], params["min_gap_s"])
 
         def _attach_tracks(hit_list: List[Dict]) -> None:

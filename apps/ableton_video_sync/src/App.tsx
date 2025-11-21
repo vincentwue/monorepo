@@ -50,7 +50,6 @@ const TABS = [
   { id: 'abletonConnection', label: 'Ableton connection' },
   { id: 'record', label: 'Record' },
   { id: 'ingest', label: 'Ingest' },
-  { id: 'primaryCues', label: 'Primary cue detection' },
   { id: 'postprocess', label: 'Postprocess footage' },
   { id: 'align', label: 'Align footage' },
   { id: 'videoGen', label: 'Video generator' },

@@ -134,7 +134,6 @@ recording_cue_previewer = RecordingCuePreviewer(default_cue_dir=preview_fallback
 ableton_connection_service = AbletonConnectionService()
 start_recording_runtime()
 postprocess_service = PostprocessService()
-primary_cue_service = PrimaryCueDetectionService()
 align_service = FootageAlignService()
 
 
@@ -626,35 +625,6 @@ def video_gen_auto(payload: VideoGenAutoRequest) -> dict:
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-@app.get("/primary-cues/state")
-def primary_cue_state(project_path: str = Query(..., description="Absolute path to the active project.")) -> dict:
-    try:
-        return primary_cue_service.state(project_path)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@app.post("/primary-cues/run")
-def primary_cue_run(payload: PrimaryCueRunRequest) -> dict:
-    try:
-        return primary_cue_service.start(
-            payload.project_path,
-            threshold=payload.threshold,
-            min_gap_s=payload.min_gap_s,
-            files=payload.files,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-
-@app.post("/primary-cues/reset")
-def primary_cue_reset(payload: ProjectPathRequest) -> dict:
-    try:
-        return primary_cue_service.reset(payload.project_path)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def run() -> None:

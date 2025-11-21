@@ -12,11 +12,12 @@ from scipy.signal import fftconvolve
 from typing import Dict, Iterable, List, Optional, Tuple
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+
 # ===================== CONFIG (edit here) =====================
 
 INPUT_PATH = r"D:\music_video_generation\todo_song\footage\videos"
 # OUT_DIR = "cuts"  # output folder for segments and summary.csv
-from pathlib import Path
 
 # absolute dir where this script lives
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -214,6 +215,115 @@ def find_all_matches(ref, rec, threshold, min_sep_s, verbose=False):
             i += 1
     return peaks
 
+
+def plot_find_all_matches(
+    ref: np.ndarray,
+    rec: np.ndarray,
+    threshold: float,
+    min_sep_s: float,
+    fs: int,
+    *,
+    project_dir: Path,
+    ref_label: str,
+    rec_label: str,
+):
+    """
+    Compute correlation like find_all_matches, visualize matches, and
+    save the plot to disk as PNG under <project_dir>/debug/cue_matches/.
+    """
+    corr = xcorr_valid(ref, rec)
+
+    if corr.size == 0:
+        print("[debug] Empty correlation, nothing to plot")
+        return None
+
+    max_corr = float(np.max(corr))
+    if max_corr < 0.01:
+        print("[debug] No correlation above noise level, skipping plot")
+        return None
+
+    adaptive_base = min(max(threshold, 0.0), max_corr)
+    adaptive_thresh = max(adaptive_base * 0.9, max_corr * 0.55)
+    nms = int(max(1, round(min_sep_s * fs)))
+
+    # peak picking (same structure as find_all_matches)
+    peak_indices: List[int] = []
+    i = 0
+    L = len(corr)
+    while i < L:
+        if corr[i] >= adaptive_thresh:
+            j_end = min(L, i + nms)
+            j = i + int(np.argmax(corr[i:j_end]))
+            peak_indices.append(j)
+            i = j + nms
+        else:
+            i += 1
+
+    t = np.arange(len(corr)) / fs
+
+    fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
+
+    # upper plot
+    ax1 = axes[0]
+    ax1.plot(t, corr, label="Correlation", linewidth=1.0)
+    ax1.axhline(adaptive_thresh, linestyle="--", label="Adaptive threshold")
+    if peak_indices:
+        ax1.scatter(np.array(peak_indices) / fs, corr[peak_indices], s=60, label="Detected matches")
+    ax1.set_title("find_all_matches – Detected Matches")
+    ax1.set_ylabel("Corr value")
+    ax1.legend(loc="upper right")
+    ax1.grid(True)
+
+    # lower plot
+    ax2 = axes[1]
+    ax2.plot(t, corr, linewidth=1.0, label="Correlation")
+    ax2.axhline(adaptive_thresh, linestyle="--", label="Adaptive threshold")
+    below = corr < adaptive_thresh
+    ax2.fill_between(t, corr, adaptive_thresh, where=below, alpha=0.3, label="Below threshold")
+    ax2.set_title("Regions Without Matches (corr < threshold)")
+    ax2.set_xlabel("Time (s)")
+    ax2.set_ylabel("Corr value")
+    ax2.legend(loc="upper right")
+    ax2.grid(True)
+
+    plt.tight_layout()
+
+    # construct output path
+    base_dir = Path(project_dir)
+    out_dir = base_dir / "debug" / "cue_matches"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    def _slugify(text: str) -> str:
+        allowed = []
+        for ch in str(text):
+            if ch.isalnum():
+                allowed.append(ch.lower())
+            elif ch in ("-", "_"):
+                allowed.append(ch)
+            else:
+                allowed.append("_")
+        slug = "".join(allowed)
+        while "__" in slug:
+            slug = slug.replace("__", "_")
+        return slug.strip("_") or "unnamed"
+
+    ref_slug = _slugify(ref_label)
+    rec_slug = _slugify(rec_label)
+
+    filename = (
+        f"corr_{ref_slug}_in_{rec_slug}"
+        f"_thr_{adaptive_thresh:.3f}"
+        f"_max_{max_corr:.3f}"
+        f"_peaks_{len(peak_indices)}.png"
+    )
+    out_path = out_dir / filename
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+    print(f"[debug] Saved correlation debug plot to {out_path}")
+    return out_path
+
+
 def classify_reference_name(name: str) -> Optional[str]:
     lower = name.lower()
     if any(token in lower for token in ("stop", "end", "finish")):
@@ -272,13 +382,34 @@ def gather_reference_library(refs_dir: Path) -> Dict[str, List[Dict[str, object]
     return library
 
 
-def compute_matches(rec: np.ndarray, refs: Dict[str, List[Dict[str, object]]], threshold: float, min_gap_s: float) -> Dict[str, List[Dict[str, object]]]:
+def compute_matches(
+    rec: np.ndarray,
+    refs: Dict[str, List[Dict[str, object]]],
+    threshold: float,
+    min_gap_s: float,
+    *,
+    project_dir: Optional[Path] = None,
+    rec_label: Optional[str] = None,
+) -> Dict[str, List[Dict[str, object]]]:
     matches: Dict[str, List[Dict[str, object]]] = {"start": [], "end": []}
     for kind, ref_list in refs.items():
         for ref in ref_list:
             samples = ref["samples"]
             min_sep = max(min_gap_s, len(samples) / FS)
             hits = find_all_matches(samples, rec, threshold, min_sep, verbose=False)
+            if project_dir is not None:
+                # ref["id"] should exist but be defensive
+                ref_id = str(ref.get("id", f"{kind}_ref"))
+                plot_find_all_matches(
+                    samples,
+                    rec,
+                    threshold,
+                    min_sep,
+                    FS,
+                    project_dir=project_dir,
+                    ref_label=ref_id,
+                    rec_label=rec_label or kind,
+                )
             for idx, score in hits:
                 matches[kind].append(
                     {
@@ -471,7 +602,14 @@ def process_one(infile, refs_dir, threshold, min_gap_s):
         if fs != FS:
             return {"file": infile, "error": f"temp wav not {FS} Hz (got {fs})"}
 
-        matches = compute_matches(rec, ref_library, threshold, min_gap_s)
+        matches = compute_matches(
+            rec,
+            ref_library,
+            threshold,
+            min_gap_s,
+            project_dir=Path(infile).parent,
+            rec_label=Path(infile).name,
+        )
         start_clusters = cluster_hits(matches["start"], cluster_window_s=min_gap_s, event_type="START")
         end_clusters = cluster_hits(matches["end"], cluster_window_s=min_gap_s, event_type="END")
 
@@ -503,6 +641,7 @@ def process_one(infile, refs_dir, threshold, min_gap_s):
             "orphan_end_events": orphan_end_clusters,
             "notes": notes,
         }
+
 
 def write_summary(rows, summary_root_dir):
     """
@@ -568,6 +707,8 @@ def write_summary(rows, summary_root_dir):
                 )
 
     return {"json": json_path, "csv": csv_path}
+
+
 # --- replace postprocess_recordings() so it no longer uses OUT_DIR and writes summary to INPUT_PATH ---
 def postprocess_recordings(input_path: str = INPUT_PATH):
     if not has_ffmpeg():

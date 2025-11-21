@@ -11,7 +11,7 @@ from .io import load_postprocess, load_recordings, read_state, write_state
 from .utils import find_start_cue
 from .video import run_ffmpeg
 from .match import find_recording_for_segment
-
+from .alignment_core import compute_segment_alignment, SegmentAlignment  # <- shared math
 
 VIDEO_EXTS = (".mp4", ".mkv", ".mov", ".ts", ".mts", ".m4v", ".avi", ".webm")
 AUDIO_EXTS = (".wav", ".mp3", ".m4a", ".aac")
@@ -99,51 +99,32 @@ class FootageAlignService:
                 seg_end_val = seg.get("end_time_s")
                 seg_end = float(seg_end_val) if isinstance(seg_end_val, (int, float)) else None
 
-                # relative offset: where this segment's cue sits vs audio cue
-                relative_offset = seg_start - audio_cue
-                trim_start = max(0.0, relative_offset)
-                pad_start = max(0.0, -relative_offset)
+                alignment: SegmentAlignment = compute_segment_alignment(
+                    seg_start=seg_start,
+                    seg_end=seg_end,
+                    audio_cue=audio_cue,
+                    audio_duration=audio_dur,
+                    video_duration=video_dur,
+                )
 
-                # segment duration
-                if seg_end is not None:
-                    seg_duration = max(0.0, seg_end - seg_start)
-                else:
-                    # if missing end, assume rest of video from seg_start
-                    seg_duration = max(0.0, video_dur - seg_start)
-
-                # available video after trimming (do not run into later segments)
-                available = min(seg_duration, max(0.0, video_dur - trim_start))
-                if available < 0.25:
-                    logger.debug(
-                        "Align: skipping segment %d of %s (available=%.3fs)",
-                        seg_index,
-                        video,
-                        available,
-                    )
-                    continue
-
-                # usable part of audio (after possible head pad)
-                usable_audio = max(0.0, audio_dur - pad_start)
-                used_duration = min(usable_audio, available)
-                if used_duration < 0.25:
+                # available / used durations are encoded in alignment
+                if alignment.used_duration < 0.25:
                     logger.debug(
                         "Align: skipping segment %d of %s (used_duration=%.3fs)",
                         seg_index,
                         video,
-                        used_duration,
+                        alignment.used_duration,
                     )
                     continue
-
-                pad_end = max(0.0, audio_dur - pad_start - used_duration)
 
                 out_file = output_dir / f"{video.stem}_seg{seg_index:03d}_aligned.mp4"
                 run_ffmpeg(
                     video=video,
                     audio=audio,
-                    trim_start=trim_start,
+                    trim_start=alignment.trim_start,
                     total_duration=audio_dur,
-                    pad_start=pad_start,
-                    pad_end=pad_end,
+                    pad_start=alignment.pad_start,
+                    pad_end=alignment.pad_end,
                     output=out_file,
                 )
 
@@ -152,16 +133,18 @@ class FootageAlignService:
                     "segment_index": seg_index,
                     "segment_start_s": seg_start,
                     "segment_end_s": seg_end,
-                    "segment_duration_s": seg_duration,
-                    "trim_start": trim_start,
-                    "pad_start": pad_start,
-                    "pad_end": pad_end,
-                    "used_duration": used_duration,
+                    "segment_duration_s": (
+                        (seg_end - seg_start) if seg_end is not None else max(0.0, video_dur - seg_start)
+                    ),
+                    "trim_start": alignment.trim_start,
+                    "pad_start": alignment.pad_start,
+                    "pad_end": alignment.pad_end,
+                    "used_duration": alignment.used_duration,
                     "output_path": str(out_file),
                     "flags": {
                         "missing_end": bool(seg.get("edge_case") == "missing_end"),
-                        "too_short": used_duration < 1.0,
-                        "usable": used_duration >= 1.0,
+                        "too_short": alignment.used_duration < 1.0,
+                        "usable": alignment.used_duration >= 1.0,
                         "confidence": 0.0,  # can be wired from cue scores later
                     },
                 }
@@ -186,14 +169,16 @@ class FootageAlignService:
                         "segment_index": seg_index,
                         "video_cue": seg_start,
                         "audio_cue": audio_cue,
-                        "relative_offset": relative_offset,
-                        "trim_start": trim_start,
-                        "pad_start": pad_start,
-                        "pad_end": pad_end,
+                        "relative_offset": alignment.relative_offset,
+                        "trim_start": alignment.trim_start,
+                        "pad_start": alignment.pad_start,
+                        "pad_end": alignment.pad_end,
                         "video_duration": video_dur,
                         "segment_end_s": seg_end,
-                        "segment_duration_s": seg_duration,
-                        "used_duration": used_duration,
+                        "segment_duration_s": (
+                            (seg_end - seg_start) if seg_end is not None else max(0.0, video_dur - seg_start)
+                        ),
+                        "used_duration": alignment.used_duration,
                     }
                 )
 
@@ -240,43 +225,43 @@ class FootageAlignService:
         return None
 
     def resolve_audio(
-            self,
-            project_root: Path,
-            audio_override: Optional[Path] = None,
-        ) -> Path:
-            """
-            New public helper:
+        self,
+        project_root: Path,
+        audio_override: Optional[Path] = None,
+    ) -> Path:
+        """
+        New public helper:
 
-            - If audio_override is given, just return it.
-            - Otherwise, try to locate a reasonable master audio file under
-            <project_root>/audio or <project_root>/footage/music.
-            """
-            if audio_override is not None:
-                return audio_override
+        - If audio_override is given, just return it.
+        - Otherwise, try to locate a reasonable master audio file under
+          <project_root>/audio or <project_root>/footage/music.
+        """
+        if audio_override is not None:
+            return audio_override
 
-            root = Path(project_root)
-            candidates: list[Path] = []
+        root = Path(project_root)
+        candidates: List[Path] = []
 
-            audio_dir = root / "audio"
-            music_dir = root / "footage" / "music"
+        audio_dir = root / "audio"
+        music_dir = root / "footage" / "music"
 
-            def collect_from_dir(d: Path) -> None:
-                if not d.is_dir():
-                    return
-                for p in sorted(d.iterdir()):
-                    if p.is_file() and p.suffix.lower() in AUDIO_EXTS:
-                        candidates.append(p)
+        def collect_from_dir(d: Path) -> None:
+            if not d.is_dir():
+                return
+            for p in sorted(d.iterdir()):
+                if p.is_file() and p.suffix.lower() in AUDIO_EXTS:
+                    candidates.append(p)
 
-            collect_from_dir(audio_dir)
-            collect_from_dir(music_dir)
+        collect_from_dir(audio_dir)
+        collect_from_dir(music_dir)
 
-            if not candidates:
-                raise FileNotFoundError(
-                    f"No audio export found under {audio_dir} or {music_dir}"
-                )
+        if not candidates:
+            raise FileNotFoundError(
+                f"No audio export found under {audio_dir} or {music_dir}"
+            )
 
-            # Take the first match by name; you can tweak this later
-            return candidates[0]
+        # Take the first match by name; you can tweak this later
+        return candidates[0]
 
     # --- backwards-compatibility alias for old server code ---
     def _resolve_audio(self, project_root, audio_override):

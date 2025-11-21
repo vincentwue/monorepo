@@ -32,6 +32,10 @@ def render_sync_video(
 
     This keeps the contract used by pipeline.py:
         renderer.render_sequence(seq, str(out_file), str(audio_path))
+
+    NOTE: This variant no longer relies on primary cue matches
+    (primary_cue_matches.json). All cue / alignment information is expected
+    to be obtainable from postprocess_matches.json and recordings.json.
     """
     if bars_per_cut is None:
         bars_per_cut = 1
@@ -42,7 +46,6 @@ def render_sync_video(
 
     recordings_path = root / "recordings.json"
     postprocess_path = root / "postprocess_matches.json"
-    primary_matches_path = root / "primary_cue_matches.json"
 
     log.info(
         "render_sync_edit: project=%s, audio=%s, project_root=%s",
@@ -51,19 +54,22 @@ def render_sync_video(
         root,
     )
     log.info(
-        "render_sync_edit: loading metadata: recordings=%s, postprocess=%s, primary_cues=%s",
+        "render_sync_edit: loading metadata: recordings=%s, postprocess=%s",
         recordings_path,
         postprocess_path,
-        primary_matches_path,
     )
 
     recordings_payload: Dict[str, Any] = _load_json(recordings_path)
     postprocess_matches: Dict[str, Any] = _load_json(postprocess_path)
-    primary_matches: Dict[str, Any] = _load_json(primary_matches_path)
 
+    # Select the relevant recording for this project
     rec = _select_recording(recordings_payload, project_name=project_name)
-    audio_info = _parse_audio_cues(audio_path, primary_matches, postprocess_matches)
-    camera_takes = _parse_camera_takes(primary_matches, postprocess_matches)
+
+    # Parse audio alignment info and camera takes using ONLY postprocess_matches.
+    # _parse_audio_cues/_parse_camera_takes are expected to be updated to work
+    # without primary cue matches.
+    audio_info = _parse_audio_cues(audio_path, postprocess_matches)
+    camera_takes = _parse_camera_takes(postprocess_matches)
 
     seq, debug_plan = _build_sync_sequence(
         rec,

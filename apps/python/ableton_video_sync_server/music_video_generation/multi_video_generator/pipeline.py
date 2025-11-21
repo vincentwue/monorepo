@@ -18,6 +18,8 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from apps.python.ableton_video_sync_server.music_video_generation.multi_video_generator.sync_renderer import render_sync_video
+
 from ..postprocessing import config as post_cfg  # if you still want default dirs
 from ..postprocessing.audio_utils import has_ffmpeg
 
@@ -28,7 +30,6 @@ except ImportError:  # pragma: no cover
 
 from ..postprocessing.main import iter_media, process_one  # optional if you still want to recompute
 from .auto_bar_cuts import render_auto_bar_video
-from .sync_cuts_from_recordings import render_sync_video
 from ..export_matcher import match_ableton_export_to_recording as _match_export_internal
 from ..project_files import ProjectFiles, make_store
 

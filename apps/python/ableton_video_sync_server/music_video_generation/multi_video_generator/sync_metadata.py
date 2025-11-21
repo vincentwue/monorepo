@@ -120,58 +120,81 @@ def _build_bar_grid(
 
 
 # ---------------------------------------------------------------------------
-# Audio cue parsing
+# Audio cue parsing (postprocess-only)
 # ---------------------------------------------------------------------------
 
 def _parse_audio_cues(
     audio_path: Path,
-    primary_matches: Dict[str, Any],
     postprocess_matches: Dict[str, Any],
 ) -> AudioCueInfo:
     """
-    Extract cue anchor information for the audio export:
-    - start cue (primary or secondary)
-    - end cue (best-score stop_* or end*)
-    """
-    media_primary = primary_matches.get("media", [])
-    media_post = postprocess_matches.get("media", [])
+    Extract cue anchor information for the audio export using ONLY
+    postprocess_matches.json.
 
-    primary_entry = _find_media_entry(media_primary, audio_path)
+    Semantics are aligned with align_service.utils.find_start_cue:
+
+      - If there are start_hits: use the FIRST one as the audio cue.
+      - Otherwise: use the first segment.start_time_s (if any).
+
+    End anchor is chosen heuristically from end_hits (if present).
+    """
+    media_post = postprocess_matches.get("media", [])
     post_entry = _find_media_entry(media_post, audio_path)
 
-    if primary_entry is None or post_entry is None:
-        raise ValueError(f"Audio file {audio_path} not found in cue match files")
+    if post_entry is None:
+        raise ValueError(f"Audio file {audio_path} not found in postprocess_matches media list")
 
     duration_s = float(post_entry.get("duration_s", 0.0))
 
-    # Start anchor from the first pair
-    pairs = primary_entry.get("pairs", [])
-    if not pairs:
-        raise ValueError(f"No cue pairs for audio file {audio_path}")
-    sa = pairs[0].get("start_anchor")
-    if not sa:
-        raise ValueError(f"First cue pair has no start_anchor for audio file {audio_path}")
+    # --- Start anchor: mirror find_start_cue semantics ---
+    start_hits = post_entry.get("start_hits", []) or []
+    start_time: Optional[float] = None
+    start_ref: str = ""
+
+    if start_hits:
+        # FIRST hit, not max-score; this is what find_start_cue does.
+        first_hit = start_hits[0]
+        t = first_hit.get("time_s")
+        if isinstance(t, (int, float)):
+            start_time = float(t)
+            start_ref = str(first_hit.get("ref_id", ""))
+    else:
+        # Fallback: first segment start_time_s
+        segments = post_entry.get("segments", []) or []
+        if segments:
+            t = segments[0].get("start_time_s")
+            if isinstance(t, (int, float)):
+                start_time = float(t)
+                start_ref = "<segment_start>"
+
+    if start_time is None:
+        raise ValueError(f"No usable start cue for audio file {audio_path} in postprocess_matches")
 
     start_anchor = CueAnchor(
-        time_s=float(sa["time_s"]),
-        ref_id=str(sa["ref_id"]),
+        time_s=start_time,
+        ref_id=start_ref,
     )
 
-    # End cue heuristic
-    end_hits = primary_entry.get("end_hits", []) or post_entry.get("end_hits", [])
+    # --- End anchor from end_hits (optional heuristic) ---
+    end_hits = post_entry.get("end_hits", []) or []
     end_anchor: Optional[CueAnchor] = None
 
     if end_hits:
-        # sort best score first
-        end_hits_sorted = sorted(end_hits, key=lambda h: float(h.get("score", 0.0)), reverse=True)
-        for eh in end_hits_sorted:
-            ref = str(eh.get("ref_id", ""))
-            if ref.startswith("stop_") or ref.startswith("end"):
-                end_anchor = CueAnchor(
-                    time_s=float(eh["time_s"]),
-                    ref_id=ref,
-                )
-                break
+        # Prefer hits whose ref_id looks like a stop/end cue
+        def _end_pref_key(h: Dict[str, Any]) -> tuple:
+            ref = str(h.get("ref_id", ""))
+            score = float(h.get("score", 0.0))
+            t = float(h.get("time_s", 0.0))
+            is_stop_like = 1 if (ref.startswith("stop_") or ref.startswith("end")) else 0
+            # Negative is_stop_like so that stop-like refs come first.
+            return (-is_stop_like, -score, t)
+
+        end_hits_sorted = sorted(end_hits, key=_end_pref_key)
+        eh = end_hits_sorted[0]
+        end_anchor = CueAnchor(
+            time_s=float(eh["time_s"]),
+            ref_id=str(eh.get("ref_id", "")),
+        )
 
     log.info(
         "Audio cue info: file=%s, duration=%.3fs, start=(%.3fs,%s), end=%s",
